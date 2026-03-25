@@ -222,7 +222,7 @@ module.exports = mongoose.model("follow", followSchema);
 ---
 
 
-## 9. notification.model.js
+## 8. notification.model.js
 
 ```js
 const mongoose = require("mongoose");
@@ -249,7 +249,7 @@ module.exports = mongoose.model("notification", notificationSchema);
 
 ---
 
-## 10. report.model.js
+## 9. report.model.js
 
 ```js
 const mongoose = require("mongoose");
@@ -275,7 +275,7 @@ module.exports = mongoose.model("report", reportSchema);
 
 ---
 
-## 11. chat_message.model.js
+## 10. chat_message.model.js
 
 ```js
 const mongoose = require("mongoose");
@@ -317,7 +317,7 @@ module.exports = mongoose.model("chat_message", chatMessageSchema);
 
 ---
 
-## 12. message_file.model.js
+## 11. message_file.model.js
 
 ```js
 const mongoose = require("mongoose");
