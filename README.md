@@ -221,23 +221,6 @@ module.exports = mongoose.model("follow", followSchema);
 
 ---
 
-## 8. saved_post.model.js
-
-```js
-const mongoose = require("mongoose");
-
-const savedPostSchema = new mongoose.Schema(
-  {
-    user: { type: mongoose.Schema.Types.ObjectId, ref: "user" },
-    post: { type: mongoose.Schema.Types.ObjectId, ref: "post" }
-  },
-  { timestamps: true }
-);
-
-module.exports = mongoose.model("saved_post", savedPostSchema);
-```
-
----
 
 ## 9. notification.model.js
 
