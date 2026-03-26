@@ -1,5 +1,5 @@
 import axios from "axios";
-
+import { getAccessToken, setAccessToken } from "../context/tokenStore";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
@@ -8,7 +8,7 @@ const api = axios.create({
 
 
 api.interceptors.request.use((config) => {
-  const token = null;
+  const token = getAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -33,9 +33,11 @@ api.interceptors.response.use(
 
         const newAccessToken = res.data.accessToken;
         console.log("new access token", newAccessToken);
+        setAccessToken(newAccessToken);
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         return api(originalRequest);
       } catch (err) {
+        setAccessToken(null);
         return Promise.reject(err);
       }
     }

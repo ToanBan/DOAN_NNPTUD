@@ -1,3 +1,156 @@
+# Setup MongoDB Replica Set với Docker
+
+## Giới thiệu
+
+Tài liệu này hướng dẫn cách thiết lập **MongoDB Replica Set (3 node)** bằng Docker để phục vụ phát triển ứng dụng Node.js.
+
+Replica Set giúp:
+
+* Hỗ trợ **transaction**
+* Tăng độ **ổn định (failover)**
+* Mô phỏng môi trường production
+
+---
+
+
+
+## Khởi chạy Docker
+
+```bash
+docker-compose up -d
+```
+
+---
+
+## Khởi tạo Replica Set
+
+### Bước 1: Truy cập container `mongo1`
+
+```bash
+docker exec -it mongo1 mongosh
+```
+
+---
+
+### Bước 2: Khởi tạo Replica Set
+
+```js
+rs.initiate({
+  _id: "rs0",
+  members: [
+    { _id: 0, host: "mongo1:27017" },
+    { _id: 1, host: "mongo2:27017" },
+    { _id: 2, host: "mongo3:27017" }
+  ]
+})
+```
+
+---
+
+### Bước 3: Kiểm tra trạng thái
+
+```js
+rs.status()
+```
+
+👉 Nếu thấy:
+
+* `PRIMARY`
+* `SECONDARY`
+
+→ Setup thành công 
+
+---
+
+## 🔗 5. Kết nối MongoDB trong Node.js
+
+```js
+mongoose.connect(
+  "mongodb://127.0.0.1:27017,127.0.0.1:27018,127.0.0.1:27019/DOAN_NNPTUD?replicaSet=rs0"
+);
+```
+
+---
+
+## Lưu ý
+
+### Nếu chạy Node.js trong Docker:
+
+```js
+mongoose.connect(
+  "mongodb://mongo1:27017,mongo2:27017,mongo3:27017/DOAN_NNPTUD?replicaSet=rs0"
+);
+```
+
+---
+
+## Xử lý lỗi thường gặp
+
+### Lỗi container đã tồn tại
+
+```bash
+docker rm -f mongo1 mongo2 mongo3
+```
+
+---
+
+### Docker chưa chạy
+
+* Mở **Docker Desktop**
+* Đảm bảo trạng thái: `Docker is running`
+
+---
+
+### Không kết nối được Replica Set
+
+* Kiểm tra đã chạy `rs.initiate()` chưa
+* Kiểm tra `rs.status()`
+
+---
+
+## Kiểm tra container
+
+```bash
+docker ps
+```
+
+---
+
+## Dọn dẹp
+
+### Xóa toàn bộ container
+
+```bash
+docker rm -f mongo1 mongo2 mongo3
+```
+
+---
+
+## Kết luận
+
+* MongoDB Replica Set đã sẵn sàng
+* Có thể sử dụng:
+
+  * Transaction
+  * Failover
+  * Testing môi trường thực tế
+
+---
+
+## Gợi ý phát triển tiếp
+
+* Kết nối với **Mongoose**
+* Sử dụng **transaction**
+* Xây dựng hệ thống **authentication (JWT)**
+* Tích hợp **file storage (MinIO)**
+
+---
+
+💡 *Tip: Không nên dùng `localhost:27017` khi đã setup Replica Set — hãy luôn dùng connection string đầy đủ để tận dụng hệ thống.*
+
+
+
+
 # 📦 Database Schemas (MongoDB - Mongoose)
 
 > Ý tưởng: Thiết kế hệ thống database cho mạng xã hội với các chức năng như đăng bài, tương tác, theo dõi và nhắn tin.

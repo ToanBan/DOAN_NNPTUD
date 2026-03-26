@@ -12,24 +12,54 @@ import {
 import AlertSuccess from "../components/AlertSuccess";
 import AlertError from "../components/AlertError";
 import { FcGoogle } from "react-icons/fc";
+import { useUser } from "../context/authContext";
 const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState(false);
+  const { login } = useUser();
 
+  const handleSubmitLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+    try {
+      e.preventDefault();
+      const form = e.currentTarget;
+      const formData = new FormData(form);
+      const email = formData.get("email") as string;
+      const password = formData.get("password") as string;
+      const result = await login(email, password);
 
+      if (result.message) {
+        setSuccess(true);
+        setTimeout(() => {
+          setSuccess(false);
+        }, 3000);
+
+        setTimeout(() => {
+          window.location.href = "/";
+        }, 2000);
+      } else {
+        setError(true);
+        setTimeout(() => {
+          setError(false);
+        }, 3000);
+      }
+    } catch (error) {
+      setError(true);
+      setTimeout(() => {
+        setError(false);
+      }, 3000);
+    }
+  };
 
   return (
     <>
       <div className="min-h-screen w-full flex items-center justify-center bg-[#fdfdfd] font-sans selection:bg-blue-100 selection:text-blue-600">
         <div className="w-full max-w-[1100px] h-[700px] flex overflow-hidden bg-white rounded-[40px] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] border border-slate-100 m-4">
-          {/* --- Cột trái: Brand Showcase (Ẩn trên mobile) --- */}
           <div className="hidden lg:flex w-1/2 relative p-12 flex-col justify-between overflow-hidden bg-[#0A0A0B]">
             {/* Background Elements */}
             <div className="absolute top-[-10%] right-[-10%] w-[400px] h-[400px] bg-blue-600/20 rounded-full blur-[100px]"></div>
             <div className="absolute bottom-[-10%] left-[-10%] w-[300px] h-[300px] bg-indigo-600/20 rounded-full blur-[80px]"></div>
-
             <div className="relative z-10 flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
                 <span className="text-white font-black text-xl">f</span>
@@ -86,7 +116,7 @@ const Login: React.FC = () => {
               </p>
             </div>
 
-            <form className="space-y-5">
+            <form className="space-y-5" onSubmit={handleSubmitLogin}>
               {/* Input Email */}
               <div className="space-y-2">
                 <label className="text-sm font-bold text-slate-700 ml-1">
@@ -203,16 +233,21 @@ const Login: React.FC = () => {
             </div>
 
             <div className="mt-6">
-                <button className="w-full flex items-center justify-center gap-3 py-3 border border-slate-200 rounded-2xl hover:bg-slate-50 transition-all font-bold text-slate-700 text-sm">
-                    <FcGoogle size={18} /> Google
-                </button>
+              <button
+                onClick={() => {
+                  window.location.href = `http://localhost:3000/api/auth/google`;
+                }}
+                className="w-full flex items-center justify-center gap-3 py-3 border border-slate-200 rounded-2xl hover:bg-slate-50 transition-all font-bold text-slate-700 text-sm"
+              >
+                <FcGoogle size={18} /> Google
+              </button>
             </div>
 
             {/* Footer Link */}
             <p className="mt-auto pt-10 text-center text-sm text-slate-500 font-medium">
               Bạn là người mới?{" "}
               <a
-                href="#"
+                href="/register"
                 className="font-black text-blue-600 hover:text-blue-700 transition-colors"
               >
                 Tạo tài khoản miễn phí
