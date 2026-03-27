@@ -25,7 +25,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/api/auth', authRouter);
 app.use("/api/posts", postRouter);
 
-mongoose.connect("mongodb://127.0.0.1:27020/DOAN_NNPTUD");
+mongoose.connect(
+  "mongodb://127.0.0.1:27017,127.0.0.1:27018,127.0.0.1:27019/DOAN_NNPTUD?replicaSet=rs0"
+);
 
 mongoose.connection.on('connected', async function () {
   console.log("MongoDB connected");
