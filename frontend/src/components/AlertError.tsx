@@ -1,13 +1,14 @@
 import React from "react";
 
 interface AlertErrorProps {
-  messages: string[];
+  messages: string | string[];
 }
 
 const AlertError: React.FC<AlertErrorProps> = ({ messages }) => {
+  const msgs = Array.isArray(messages) ? messages : [messages];
   return (
     <div className="fixed top-5 right-5 flex flex-col gap-4 z-[100]">
-      {messages.map((message, index) => (
+      {msgs.map((message, index) => (
         <div
           key={index}
           className="flex items-center w-full max-w-sm p-4 bg-white rounded-[1.5rem] shadow-[0_15px_30px_-5px_rgba(0,0,0,0.1)] border-l-4 border-rose-500 animate-slide-in"

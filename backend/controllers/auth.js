@@ -2,9 +2,10 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const fs = require("fs");
 const path = require("path");
-let User = require("../schemas/users");
-let Role = require("../schemas/roles");
-
+const crypto = require("crypto");
+const User = require("../schemas/users");
+const Role = require("../schemas/roles");
+const sendMail = require("../config/mail");
 const privateKey = fs.readFileSync(
   path.join(__dirname, "../keys/private.pem"),
   "utf8",
@@ -49,7 +50,7 @@ const register = async (req, res, next) => {
       password,
       fullName,
       role: userRole._id,
-      status:true,
+      status: true,
     });
 
     await newUser.save();
@@ -137,6 +138,7 @@ const login = async (req, res, next) => {
 
     return res.json({
       message: "Login success",
+      success:true,
       accessToken,
       user: {
         _id: user._id,
@@ -150,9 +152,100 @@ const login = async (req, res, next) => {
   }
 };
 
+const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: "Email is required" });
+    const user = await User.findOne({ email, isDeleted: false });
+    if (!user) return res.status(404).json({ message: "User not found" });
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const token = crypto.randomBytes(32).toString("hex");
+
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    user.resetOtp = otp;
+    user.resetToken = tokenHash;
+    user.resetExpire = Date.now() + 10 * 60 * 1000;
+    await user.save();
+    const subject = "OTP for Password Reset";
+    const text = `Your OTP is: ${otp}.\nClick to verify: http://localhost:5173/verify-otp?token=${token}`;
+    await sendMail(user.email, subject, text);
+    return res.json({ message: "OTP sent to your email", success: true });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const verifyOtp = async (req, res, next) => {
+  try {
+    const { token, otps } = req.body;
+
+    if (!token || !otps || !Array.isArray(otps))
+      return res.status(400).json({ message: "Token and OTP required" });
+
+
+    const otpString = otps.join("");
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+    const user = await User.findOne({
+      resetToken: tokenHash,
+      resetExpire: { $gt: Date.now() },
+      isDeleted: false,
+    });
+
+ 
+    if (!user)
+      return res.status(400).json({ message: "Invalid or expired token" });
+
+    if (user.resetOtp !== otpString)
+      return res.status(400).json({ message: "Invalid OTP" });
+
+    user.resetOtp = null;
+    await user.save();
+
+    return res.json({
+      message: "OTP verified successfully",
+      token,
+      success: true,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const resetPassword = async (req, res, next) => {
+  try {
+    const { token, newPassword, confirmNewPassword } = req.body;
+    if (!token || !newPassword || !confirmNewPassword)
+      return res.status(400).json({ message: "Token and passwords required" });
+
+    if (newPassword !== confirmNewPassword)
+      return res.status(400).json({ message: "Passwords do not match" });
+
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+    const user = await User.findOne({
+      resetToken: tokenHash,
+      resetExpire: { $gt: Date.now() },
+      isDeleted: false,
+    });
+
+    if (!user)
+      return res.status(400).json({ message: "Invalid or expired token" });
+
+    user.password = newPassword
+    user.resetToken = null;
+    user.resetExpire = null;
+    await user.save();
+
+    res.json({ message: "Password has been reset successfully", success:true});
+  } catch (err) {
+    next(err);
+  }
+};
+
 const refreshToken = async (req, res, next) => {
   try {
-    const user = req.user
+    const user = req.user;
 
     const payload = {
       userId: user._id,
@@ -215,7 +308,6 @@ const getInfoUser = async (req, res, next) => {
 
 const logout = async (req, res, next) => {
   try {
-  
     res.clearCookie("accessToken", {
       httpOnly: true,
       secure: false,
@@ -248,7 +340,7 @@ const googleCallback = async (req, res) => {
   const accessToken = jwt.sign(payload, privateKey, {
     algorithm: "RS256",
     expiresIn: "1d",
-    });
+  });
 
   const refreshToken = jwt.sign(payload, privateKey, {
     algorithm: "RS256",
@@ -274,4 +366,14 @@ const googleCallback = async (req, res) => {
 
   return res.redirect("http://localhost:5173");
 };
-module.exports = { register, login, refreshToken, getInfoUser, logout, googleCallback};
+module.exports = {
+  register,
+  login,
+  refreshToken,
+  getInfoUser,
+  logout,
+  googleCallback,
+  forgotPassword,
+  resetPassword,
+  verifyOtp,
+};
