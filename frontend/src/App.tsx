@@ -3,6 +3,9 @@ import Register from "./pages/Register";
 import Login from "./pages/Login";
 import HomePage from "./pages/Home";
 import Profile from "./pages/Profile";
+import Forgot from "./pages/Forgot";
+import ResetPassword from "./pages/ResetPassword";
+import VerifyOTP from "./pages/VerifyOTP";
 function App() {
   return (
     <Router>
@@ -11,6 +14,9 @@ function App() {
         <Route path="/login" element={<Login/>}/>
         <Route path="/" element={<HomePage/>}/>
         <Route path="/profile" element={<Profile/>}/>
+        <Route path="/forgot-password" element={<Forgot/>}/>
+        <Route path="/reset-password" element={<ResetPassword/>}/>
+        <Route path="/verify-otp" element={<VerifyOTP/>}/>
       </Routes>
     </Router>
   );
