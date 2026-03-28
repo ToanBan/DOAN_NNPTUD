@@ -9,8 +9,10 @@ let {
   logout,
   googleCallback,
   forgotPassword,
-  resetPassword, 
-  verifyOtp
+  resetPassword,
+  verifyOtp,
+  editProfile,
+  changePassword
 } = require("../controllers/auth");
 let passport = require("passport");
 let { verifyAccessToken, verifyRefreshToken } = require("../middleware/auth");
@@ -26,8 +28,10 @@ router.post("/refresh-token", verifyRefreshToken, refreshToken);
 router.get("/me", verifyAccessToken, getInfoUser);
 router.post("/logout", verifyAccessToken, logout);
 router.post("/forgotpassword", forgotPassword);
-router.post("/resetpassword", resetPassword)
+router.post("/resetpassword", resetPassword);
 router.post("/verifyotp", verifyOtp);
+router.post("/editprofile", verifyAccessToken, editProfile)
+router.post("/changepassword", verifyAccessToken, changePassword)
 router.get(
   "/google",
   passport.authenticate("google", { scope: ["profile", "email"] }),

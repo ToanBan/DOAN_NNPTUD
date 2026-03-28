@@ -9,7 +9,7 @@ import {
   ChevronDown,
   Settings,
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom"; // Thêm useNavigate
+import { Link, useNavigate } from "react-router-dom";
 import { useUser } from "../context/authContext";
 
 const Header: React.FC = () => {

@@ -6,6 +6,7 @@ const crypto = require("crypto");
 const User = require("../schemas/users");
 const Role = require("../schemas/roles");
 const sendMail = require("../config/mail");
+
 const privateKey = fs.readFileSync(
   path.join(__dirname, "../keys/private.pem"),
   "utf8",
@@ -138,13 +139,16 @@ const login = async (req, res, next) => {
 
     return res.json({
       message: "Login success",
-      success:true,
+      success: true,
       accessToken,
       user: {
         _id: user._id,
         username: user.username,
         email: user.email,
         role: user.role.name,
+        address: user.address,
+        phone: user.phone,
+        description: user.description,
       },
     });
   } catch (error) {
@@ -182,7 +186,6 @@ const verifyOtp = async (req, res, next) => {
     if (!token || !otps || !Array.isArray(otps))
       return res.status(400).json({ message: "Token and OTP required" });
 
-
     const otpString = otps.join("");
     const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
 
@@ -192,7 +195,6 @@ const verifyOtp = async (req, res, next) => {
       isDeleted: false,
     });
 
- 
     if (!user)
       return res.status(400).json({ message: "Invalid or expired token" });
 
@@ -232,12 +234,15 @@ const resetPassword = async (req, res, next) => {
     if (!user)
       return res.status(400).json({ message: "Invalid or expired token" });
 
-    user.password = newPassword
+    user.password = newPassword;
     user.resetToken = null;
     user.resetExpire = null;
     await user.save();
 
-    res.json({ message: "Password has been reset successfully", success:true});
+    res.json({
+      message: "Password has been reset successfully",
+      success: true,
+    });
   } catch (err) {
     next(err);
   }
@@ -299,6 +304,9 @@ const getInfoUser = async (req, res, next) => {
         username: user.username,
         email: user.email,
         role: user.role.name,
+        address: user.address,
+        phone: user.phone,
+        description: user.description,
       },
     });
   } catch (error) {
@@ -366,6 +374,140 @@ const googleCallback = async (req, res) => {
 
   return res.redirect("http://localhost:5173");
 };
+
+const editProfile = async (req, res, next) => {
+  try {
+    const user = req.user;
+    const { phone, description, address, username } = req.body;
+
+    const updateData = {};
+
+    if (phone) {
+      const cleanPhone = phone.trim().replace(/\s+/g, "");
+      const isValidPhone = /^(0|\+84)[0-9]{9}$/.test(cleanPhone);
+
+      if (!isValidPhone) {
+        return res.status(400).json({ message: "Invalid phone number" });
+      }
+
+      updateData.phone = cleanPhone;
+    }
+
+    if (description) {
+      if (description.length > 500) {
+        return res.status(400).json({
+          message: "Description too long (max 500 chars)",
+        });
+      }
+      updateData.description = description.trim();
+    }
+
+    if (address) {
+      updateData.address = address.trim();
+    }
+
+    if (username) {
+      const trimmedUsername = username.trim();
+
+      const existingUser = await User.findOne({
+        username: trimmedUsername,
+        _id: { $ne: user._id },
+      });
+
+      if (existingUser) {
+        return res.status(400).json({
+          message: "Username already exists",
+        });
+      }
+
+      updateData.username = trimmedUsername;
+    }
+
+    // if (req.file) {
+    //   updateData.avatar = req.file.filename;
+    // }
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({
+        message: "No data to update",
+      });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(user._id, updateData, {
+      new: true,
+    }).populate("role");
+
+    return res.json({
+      success: true,
+      message: "Update profile success",
+      user: {
+        _id: updatedUser._id,
+        username: updatedUser.username,
+        email: updatedUser.email,
+        phone: updatedUser.phone,
+        description: updatedUser.description,
+        address: updatedUser.address,
+        role: updatedUser.role.name,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const changePassword = async (req, res, next) => {
+  try {
+    const user = req.user;
+    const { oldPassword, newPassword, confirmNewPassword } = req.body;
+
+    if (!oldPassword || !newPassword || !confirmNewPassword) {
+      return res.status(400).json({
+        message: "All fields are required",
+      });
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      return res.status(400).json({
+        message: "New passwords do not match",
+      });
+    }
+
+    const currentUser = await User.findById(user._id);
+
+    if (!currentUser) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    const isMatch = bcrypt.compareSync(oldPassword, currentUser.password);
+
+    if (!isMatch) {
+      return res.status(400).json({
+        message: "Old password is incorrect",
+      });
+    }
+
+    const isSamePassword = bcrypt.compareSync(
+      newPassword,
+      currentUser.password,
+    );
+    if (isSamePassword) {
+      return res.status(400).json({
+        message: "New password must be different from old password",
+      });
+    }
+    currentUser.password = newPassword;
+    await currentUser.save();
+
+    return res.json({
+      message: "Change password success",
+      success: true,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 module.exports = {
   register,
   login,
@@ -376,4 +518,6 @@ module.exports = {
   forgotPassword,
   resetPassword,
   verifyOtp,
+  editProfile,
+  changePassword,
 };
