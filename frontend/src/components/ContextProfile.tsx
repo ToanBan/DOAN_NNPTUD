@@ -31,22 +31,18 @@ interface ContextProfileProps {
   user: any;
   myself: boolean;
   posts: any;
-}
-
-interface StatsProps {
-  posts: number;
-  followers: number;
-  following: number;
+  stats?: { followers: number; following: number; posts: number };
+  relationshipAction?: string;
+  onToggleFollow?: () => void;
 }
 
 const ContextProfile: React.FC<ContextProfileProps> = ({
   user,
   myself,
   posts,
-}: {
-  user: any;
-  myself: boolean;
-  posts: any;
+  stats = { followers: 0, following: 0, posts: 0 },
+  relationshipAction = "None",
+  onToggleFollow
 }) => {
   const [showSettings, setShowSettings] = useState(false);
   const [activeModal, setActiveModal] = useState<
@@ -180,11 +176,13 @@ const ContextProfile: React.FC<ContextProfileProps> = ({
               </div>
             ) : (
               <button
-               
+                onClick={onToggleFollow}
                 className="flex-1 md:flex-none px-8 py-3 bg-white text-slate-900 font-bold rounded-2xl shadow-sm border border-slate-200 hover:bg-slate-50 transition-all active:scale-95 flex items-center justify-center gap-2"
               >
                 <User size={18} />{" "}
-                THEO DÕI
+                {relationshipAction === "Friend" ? "BẠN BÈ" :
+                 relationshipAction === "Following" ? "ĐANG THEO DÕI" :
+                 "THEO DÕI"}
               </button>
             )}
           </div>
@@ -219,13 +217,13 @@ const ContextProfile: React.FC<ContextProfileProps> = ({
             </div>
 
             <div className="grid grid-cols-3 gap-2 mt-10 pt-8 border-t border-slate-50">
-              <StatItem label="Posts" value="12" />
+              <StatItem label="Posts" value={stats.posts.toString()} />
               <StatItem
                 label="Followers"
-                value={'12'}
+                value={stats.followers.toString()}
                 isCenter
               />
-              <StatItem label="Following" value="12"/>
+              <StatItem label="Following" value={stats.following.toString()}/>
             </div>
           </div>
         </div>

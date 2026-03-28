@@ -7,10 +7,10 @@ const handleRegister = async (
 ) => {
   try {
     const res = await fetch(
-      `${import.meta.env.VITE_API_URL}/api/auth/register`,
+      `http://localhost:3000/api/auth/register`,
       {
         method: "POST",
-        body: JSON.stringify({ username, fullname ,email, password, confirmPassword }),
+        body: JSON.stringify({ username, fullname, email, password, confirmPassword }),
         headers: {
           "Content-Type": "application/json",
         },

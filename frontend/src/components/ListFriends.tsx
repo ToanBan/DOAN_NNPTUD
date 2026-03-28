@@ -24,6 +24,20 @@ const ListFriends = () => {
   const [isUploading, setIsUploading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    const fetchFriends = async () => {
+      try {
+        const res = await api.get('/api/users/friends');
+        setFriends(res.data.friends || []);
+      } catch (error) {
+        console.error("Lỗi lấy danh sách bạn bè:", error);
+      }
+    };
+    if (user) {
+      fetchFriends();
+    }
+  }, [user]);
+
 
  
 
