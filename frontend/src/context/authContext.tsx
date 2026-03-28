@@ -24,12 +24,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setAccessTokenState(token);
     setAccessToken(token);
     const profile = await getProfile();
+    console.log("profile", profile);
     setUser(profile);
     return res.data;
   };
 
   const getProfile = async () => {
     const res = await api.get("/api/auth/me");
+    setUser(res.data.user)
     return res.data.user;
   };
 
@@ -40,6 +42,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setAccessToken(null);
     setUser(null);
   };
+
+
+
 
   useEffect(() => {
     const initAuth = async () => {
