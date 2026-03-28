@@ -9,10 +9,11 @@ import {
 } from "lucide-react";
 import AlertSuccess from "./AlertSuccess";
 import AlertError from "./AlertError";
+import api from "../lib/axios";
 
 interface PostCreatorProps {
   username: string;
-  onPostCreated?: (newPost: any) => void; 
+  onPostCreated?: (newPost: any) => void;
 }
 
 const PostCreator = ({ username, onPostCreated }: PostCreatorProps) => {
@@ -28,19 +29,55 @@ const PostCreator = ({ username, onPostCreated }: PostCreatorProps) => {
   const resetForm = () => {
     setContent("");
     setFile(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
 
+    if (!content.trim() && !file) {
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("content", content.trim());
+      formData.append("privacy", "public");
+
+      if (file) {
+        formData.append("file", file);
+      }
+
+      const res = await api.post("/api/posts", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      onPostCreated?.(res.data.post);
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 2500);
+      resetForm();
+      setIsModalOpen(false);
+    } catch (_error) {
+      setError(true);
+      setTimeout(() => setError(false), 2500);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <>
-      {/* Nút bấm mở Modal */}
       <div className="bg-white p-5 rounded-[24px] shadow-sm border border-slate-200/50">
         <div className="flex gap-4 mb-5">
           <div className="w-11 h-11 rounded-full bg-slate-100 overflow-hidden flex-shrink-0 border border-slate-100">
             <img
-              src={`https://api.dicebear.com/7.x/avataaars/svg?seed=Felix`}
+              src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix"
               alt="Avatar"
             />
           </div>
@@ -48,30 +85,29 @@ const PostCreator = ({ username, onPostCreated }: PostCreatorProps) => {
             onClick={() => setIsModalOpen(true)}
             className="w-full text-left px-5 py-2.5 bg-slate-100/80 hover:bg-slate-200/60 rounded-2xl text-slate-500 text-sm font-medium transition-all outline-none"
           >
-            Chào {username}, hôm nay bạn thấy thế nào?
+            Chao {username}, hom nay ban thay the nao?
           </button>
         </div>
 
         <div className="flex gap-2 sm:gap-4 pt-4 border-t border-slate-100">
           <button className="flex-1 flex items-center justify-center gap-2 py-2.5 hover:bg-rose-50 rounded-xl text-rose-500 font-semibold text-xs transition-all group">
             <Video size={18} className="group-hover:scale-110 transition-transform" />
-            <span className="hidden sm:inline">Trực tiếp</span>
+            <span className="hidden sm:inline">Truc tiep</span>
           </button>
-          <button 
+          <button
             onClick={() => setIsModalOpen(true)}
             className="flex-1 flex items-center justify-center gap-2 py-2.5 hover:bg-emerald-50 rounded-xl text-emerald-500 font-semibold text-xs transition-all group"
           >
             <ImageIcon size={18} className="group-hover:scale-110 transition-transform" />
-            <span className="hidden sm:inline">Ảnh/Video</span>
+            <span className="hidden sm:inline">Anh/Video</span>
           </button>
           <button className="flex-1 flex items-center justify-center gap-2 py-2.5 hover:bg-orange-50 rounded-xl text-orange-500 font-semibold text-xs transition-all group">
             <Smile size={18} className="group-hover:scale-110 transition-transform" />
-            <span className="hidden sm:inline">Cảm xúc</span>
+            <span className="hidden sm:inline">Cam xuc</span>
           </button>
         </div>
       </div>
 
-      {/* Modal tạo bài viết */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div
@@ -80,10 +116,9 @@ const PostCreator = ({ username, onPostCreated }: PostCreatorProps) => {
           />
 
           <div className="relative w-full max-w-[550px] bg-white rounded-[28px] shadow-2xl overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
-            {/* Header */}
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <h3 className="text-lg font-bold text-slate-800 w-full text-center ml-8">
-                Tạo bài viết
+                Tao bai viet
               </h3>
               <button
                 onClick={() => !loading && setIsModalOpen(false)}
@@ -94,26 +129,28 @@ const PostCreator = ({ username, onPostCreated }: PostCreatorProps) => {
               </button>
             </div>
 
-            {/* Body */}
             <div className="p-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
-              <form>
+              <form onSubmit={handleSubmit}>
                 <div className="flex gap-3 mb-5">
                   <div className="w-12 h-12 rounded-full bg-slate-100 overflow-hidden border border-slate-100">
                     <img
-                      src={`https://api.dicebear.com/7.x/avataaars/svg?seed=Felix`}
+                      src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix"
                       alt="Avatar"
                     />
                   </div>
                   <div>
                     <p className="font-bold text-slate-900 leading-tight mb-1">{username}</p>
-                    <button type="button" className="flex items-center gap-1.5 px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-[12px] font-bold text-slate-600 transition-colors">
-                      <Globe size={14} /> Công khai <ChevronDown size={14} />
+                    <button
+                      type="button"
+                      className="flex items-center gap-1.5 px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-[12px] font-bold text-slate-600 transition-colors"
+                    >
+                      <Globe size={14} /> Cong khai <ChevronDown size={14} />
                     </button>
                   </div>
                 </div>
 
                 <textarea
-                  placeholder={`${username} ơi, bạn đang nghĩ gì thế?`}
+                  placeholder={`${username} oi, ban dang nghi gi the?`}
                   className="w-full min-h-[120px] text-lg text-slate-800 placeholder:text-slate-400 border-none outline-none resize-none focus:ring-0 mb-4"
                   autoFocus
                   value={content}
@@ -121,7 +158,6 @@ const PostCreator = ({ username, onPostCreated }: PostCreatorProps) => {
                   disabled={loading}
                 />
 
-                {/* Upload Area */}
                 <div className="relative group rounded-2xl overflow-hidden bg-slate-50 border-2 border-dashed border-slate-200 p-6 flex flex-col items-center justify-center mb-6 hover:bg-blue-50/50 hover:border-blue-200 transition-all">
                   {file ? (
                     <div className="flex items-center justify-between w-full bg-white p-3 rounded-xl shadow-sm border border-slate-100">
@@ -129,9 +165,14 @@ const PostCreator = ({ username, onPostCreated }: PostCreatorProps) => {
                         <ImageIcon className="text-blue-500 flex-shrink-0" size={20} />
                         <span className="text-sm font-semibold text-slate-700 truncate">{file.name}</span>
                       </div>
-                      <button 
+                      <button
                         type="button"
-                        onClick={() => { setFile(null); if(fileInputRef.current) fileInputRef.current.value = ""; }}
+                        onClick={() => {
+                          setFile(null);
+                          if (fileInputRef.current) {
+                            fileInputRef.current.value = "";
+                          }
+                        }}
                         className="p-1.5 hover:bg-rose-50 text-rose-500 rounded-lg transition-colors"
                       >
                         <X size={16} />
@@ -142,14 +183,18 @@ const PostCreator = ({ username, onPostCreated }: PostCreatorProps) => {
                       <div className="p-3 bg-white rounded-2xl shadow-sm mb-2 group-hover:scale-110 transition-transform">
                         <ImageIcon size={24} className="text-slate-400" />
                       </div>
-                      <p className="text-sm font-bold text-slate-500 mb-1">Thêm ảnh vào bài viết</p>
-                      <p className="text-[11px] text-slate-400">Hoặc kéo và thả</p>
+                      <p className="text-sm font-bold text-slate-500 mb-1">Them anh vao bai viet</p>
+                      <p className="text-[11px] text-slate-400">Hoac keo va tha</p>
                       <input
                         type="file"
                         ref={fileInputRef}
                         className="absolute inset-0 opacity-0 cursor-pointer"
-                        accept="image/*"
-                        onChange={(e) => { if (e.target.files?.[0]) setFile(e.target.files[0]); }}
+                        accept="image/*,video/*"
+                        onChange={(e) => {
+                          if (e.target.files?.[0]) {
+                            setFile(e.target.files[0]);
+                          }
+                        }}
                         disabled={loading}
                       />
                     </>
@@ -164,9 +209,11 @@ const PostCreator = ({ username, onPostCreated }: PostCreatorProps) => {
                   {loading ? (
                     <>
                       <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Đang xử lý...
+                      Dang xu ly...
                     </>
-                  ) : "Đăng bài viết"}
+                  ) : (
+                    "Dang bai viet"
+                  )}
                 </button>
               </form>
             </div>
@@ -174,9 +221,8 @@ const PostCreator = ({ username, onPostCreated }: PostCreatorProps) => {
         </div>
       )}
 
-      {/* Hệ thống Alert thông báo */}
-      {success && <AlertSuccess message="Thêm bài viết thành công!" />}
-      {error && <AlertError message="Thêm bài viết thất bại, vui lòng thử lại!" />}
+      {success && <AlertSuccess message="Them bai viet thanh cong!" />}
+      {error && <AlertError messages={["Them bai viet that bai, vui long thu lai!"]} />}
     </>
   );
 };
