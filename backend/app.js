@@ -26,7 +26,7 @@ app.use('/api/auth', authRouter);
 app.use("/api/posts", postRouter);
 
 mongoose.connect(
-  "mongodb://127.0.0.1:27017,127.0.0.1:27018,127.0.0.1:27019/DOAN_NNPTUD?replicaSet=rs0"
+  process.env.MONGO_URI || "mongodb://127.0.0.1:27017/DOAN_NNPTUD"
 );
 
 mongoose.connection.on('connected', async function () {
@@ -41,6 +41,8 @@ mongoose.connection.on('disconnected', function () {
 
 
 
-app.listen(process.env.PORT, () => {
-  console.log(`Server running at http://localhost:${process.env.PORT}`);
+const port = process.env.PORT || 5000;
+
+app.listen(port, () => {
+  console.log(`Server running at http://localhost:${port}`);
 });
