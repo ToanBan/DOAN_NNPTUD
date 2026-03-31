@@ -18,6 +18,8 @@ const Search: React.FC = () => {
   const [results, setResults] = useState<UserResult[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
 
+  console.log(results);
+
   useEffect(() => {
     const fetchResults = async () => {
       if (!query.trim()) {
@@ -65,7 +67,7 @@ const Search: React.FC = () => {
                 <div className="flex items-center gap-4">
                   <div className="w-14 h-14 rounded-full p-0.5 border-2 border-slate-100 overflow-hidden">
                     <img 
-                      src={user.avatarUrl && !user.avatarUrl.includes('dicebear') ? `${import.meta.env.VITE_API_MINIO}/${user.avatarUrl}` : `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`} 
+                      src={user.avatarUrl && !user.avatarUrl.includes('dicebear') ? `${user.avatarUrl}` : `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`} 
                       alt={user.username} 
                       className="w-full h-full object-cover rounded-full bg-slate-100"
                     />

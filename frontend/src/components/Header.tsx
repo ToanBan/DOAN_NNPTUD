@@ -19,7 +19,6 @@ const Header: React.FC = () => {
   const { user, logout } = useUser();
   const { socket } = useSocket();
   const navigate = useNavigate();
-  console.log(user);
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [notificationCount, setNotificationCount] = useState<number>(0);
