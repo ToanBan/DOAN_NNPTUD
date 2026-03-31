@@ -21,37 +21,43 @@ const Login: React.FC = () => {
   const { login } = useUser();
 
   const handleSubmitLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (isLoading) return;
+    const currentForm = e.currentTarget;
+    setIsLoading(true);
+
     try {
-      e.preventDefault();
-      const form = e.currentTarget;
-      const formData = new FormData(form);
+      const formData = new FormData(currentForm);
       const email = formData.get("email") as string;
       const password = formData.get("password") as string;
       const result = await login(email, password);
 
-      if (result.message) {
+      if (result.success) {
         setSuccess(true);
-        setTimeout(() => {
-          setSuccess(false);
-        }, 3000);
+        currentForm.reset();
 
         setTimeout(() => {
+          setSuccess(false);
           window.location.href = "/";
         }, 2000);
       } else {
+        currentForm.reset();
         setError(true);
         setTimeout(() => {
           setError(false);
         }, 3000);
       }
     } catch (error) {
+      currentForm.reset();
       setError(true);
       setTimeout(() => {
         setError(false);
       }, 3000);
+    } finally {
+      setIsLoading(false);
     }
   };
-
   return (
     <>
       <div className="min-h-screen w-full flex items-center justify-center bg-[#fdfdfd] font-sans selection:bg-blue-100 selection:text-blue-600">
@@ -136,15 +142,14 @@ const Login: React.FC = () => {
                 </div>
               </div>
 
-              {/* Input Password */}
               <div className="space-y-2">
                 <div className="flex justify-between items-center ml-1">
                   <label className="text-sm font-bold text-slate-700">
                     Mật khẩu
                   </label>
                   <a
-                    href="#"
-                    className="text-xs font-bold text-blue-600 hover:text-indigo-600 transition-colors"
+                    href="/forgot-password"
+                    className="text-xs font-bold text-blue-600 hover:text-indigo-600 transition-colors py-1 px-2 hover:bg-blue-50 rounded-lg"
                   >
                     Quên mật khẩu?
                   </a>
@@ -204,10 +209,13 @@ const Login: React.FC = () => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-bold shadow-xl shadow-slate-200 transition-all transform hover:scale-[1.01] active:scale-[0.98] flex items-center justify-center gap-2 group disabled:opacity-70 disabled:cursor-not-allowed"
+                className="w-full py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-bold shadow-xl shadow-slate-200 transition-all transform hover:scale-[1.01] active:scale-[0.98] flex items-center justify-center gap-3 group disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 {isLoading ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  <>
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    <span>Đang xử lý...</span>
+                  </>
                 ) : (
                   <>
                     Bắt đầu ngay{" "}
@@ -235,7 +243,7 @@ const Login: React.FC = () => {
             <div className="mt-6">
               <button
                 onClick={() => {
-                  window.location.href = `http://localhost:3000/api/auth/google`;
+                  window.location.href = `${import.meta.env.VITE_API_URL}/api/auth/google`;
                 }}
                 className="w-full flex items-center justify-center gap-3 py-3 border border-slate-200 rounded-2xl hover:bg-slate-50 transition-all font-bold text-slate-700 text-sm"
               >
@@ -258,7 +266,7 @@ const Login: React.FC = () => {
       </div>
 
       {success && <AlertSuccess message="Đăng Nhập Thành Công" />}
-      {error && <AlertError message="Đăng Nhập Thất Bại" />}
+      {error && <AlertError messages="Đăng Nhập Thất Bại" />}
     </>
   );
 };

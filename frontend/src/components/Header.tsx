@@ -9,16 +9,23 @@ import {
   ChevronDown,
   Settings,
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom"; // Thêm useNavigate
+import { Link, useNavigate } from "react-router-dom";
 import { useUser } from "../context/authContext";
+import { useSocket } from "../context/socketContext";
+import Swal from "sweetalert2";
+import api from "../lib/axios";
 
 const Header: React.FC = () => {
   const { user, logout } = useUser();
+  const { socket } = useSocket();
   const navigate = useNavigate();
-  console.log(user);
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [notificationCount, setNotificationCount] = useState<number>(0);
+  const [isNotiOpen, setIsNotiOpen] = useState<boolean>(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const notiDropdownRef = useRef<HTMLDivElement>(null);
   const handleSearch = (e: React.FormEvent | React.MouseEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
@@ -42,10 +49,71 @@ const Header: React.FC = () => {
       ) {
         setIsOpen(false);
       }
+      if (
+        notiDropdownRef.current &&
+        !notiDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsNotiOpen(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      api.get('/api/users/notifications')
+        .then((res) => {
+          setNotifications(res.data.notifications);
+          setNotificationCount(res.data.unreadCount);
+        })
+        .catch(err => console.error(err));
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleNotification = (data: any) => {
+      console.log("New notification received:", data);
+      setNotificationCount((prev) => prev + 1);
+      setNotifications((prev) => [data, ...prev]);
+      
+      let message = "Bạn có thông báo mới";
+      if (data.type === 'follow') {
+        message = `${data.sender?.username || 'Ai đó'} vừa mới bắt đầu theo dõi bạn!`;
+      }
+
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 4000,
+        timerProgressBar: true,
+        icon: 'info',
+        title: message,
+      });
+    };
+
+    socket.on("new_notification", handleNotification);
+
+    return () => {
+      socket.off("new_notification", handleNotification);
+    };
+  }, [socket]);
+
+  const toggleNotifications = async () => {
+    setIsNotiOpen(!isNotiOpen);
+    if (!isNotiOpen && notificationCount > 0) {
+      try {
+        await api.put('/api/users/notifications/read');
+        setNotificationCount(0);
+        setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      } catch(err) {
+        console.error("Error marking read", err);
+      }
+    }
+  };
 
   return (
     <nav className="fixed top-0 inset-x-0 z-50 bg-white/70 backdrop-blur-xl border-b border-slate-200/60 px-4 md:px-8 h-16 flex items-center justify-between">
@@ -91,12 +159,58 @@ const Header: React.FC = () => {
             <MessageCircle size={20} />
             <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
           </button>
-          <button className="relative p-2.5 hover:bg-slate-100 rounded-full transition-colors text-slate-600 active:scale-90">
-            <Bell size={20} />
-            <span className="absolute top-2 right-2.5 w-4 h-4 bg-blue-600 text-[10px] text-white flex items-center justify-center rounded-full border-2 border-white font-bold">
-              3
-            </span>
-          </button>
+          <div className="relative" ref={notiDropdownRef}>
+            <button 
+              onClick={toggleNotifications}
+              className="relative p-2.5 hover:bg-slate-100 rounded-full transition-colors text-slate-600 active:scale-90"
+            >
+              <Bell size={20} />
+              {notificationCount > 0 && (
+                <span className="absolute top-2 right-2.5 w-4 h-4 bg-blue-600 text-[10px] text-white flex items-center justify-center rounded-full border-2 border-white font-bold">
+                  {notificationCount}
+                </span>
+              )}
+            </button>
+            
+            {/* Notification Dropdown */}
+            {isNotiOpen && (
+              <div className="absolute right-0 mt-3 w-80 bg-white/95 backdrop-blur-md rounded-2xl shadow-[0_20px_50px_rgba(8,_112,_184,_0.1)] border border-slate-100 p-2 animate-in fade-in zoom-in slide-in-from-top-2 duration-200 origin-top-right z-50">
+                <div className="px-4 py-3 border-b border-slate-50 mb-1 flex justify-between items-center">
+                  <p className="text-sm font-bold text-slate-700">Thông báo</p>
+                </div>
+                <div className="max-h-80 overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <div className="p-4 text-center text-slate-500 text-sm">Không có thông báo nào</div>
+                  ) : (
+                    notifications.map((notif: any, index: number) => (
+                      <div key={index} className={`flex items-start gap-3 p-3 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer ${!notif.isRead ? 'bg-blue-50/50' : ''}`}>
+                        <div className="w-10 h-10 rounded-full overflow-hidden shrink-0">
+                          <img src={notif.sender?.avatarUrl ? (notif.sender.avatarUrl.startsWith('http') ? notif.sender.avatarUrl : `${import.meta.env.VITE_API_MINIO}/${notif.sender.avatarUrl}`) : `https://api.dicebear.com/7.x/avataaars/svg?seed=${notif.sender?.username}`} className="w-full h-full object-cover" alt="avatar" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm text-slate-700">
+                            {notif.sender?.username ? (
+                              notif.sender?._id ? (
+                                <Link to={`/profile/${notif.sender._id}`} className="font-bold hover:text-blue-600 transition-colors">
+                                  {notif.sender.username}
+                                </Link>
+                              ) : (
+                                <span className="font-bold">{notif.sender.username}</span>
+                              )
+                            ) : (
+                              <span className="font-bold">Ai đó</span>
+                            )}{' '}
+                            {notif.type === 'follow' ? 'đã bắt đầu theo dõi bạn.' : 'đã tương tác với bạn.'}
+                          </p>
+                          <p className="text-xs text-slate-400 mt-1">{notif.createdAt ? new Date(notif.createdAt).toLocaleString('vi-VN') : 'Vừa xong'}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {user ? (

@@ -9,6 +9,7 @@ const passport = require("passport");
 require("./config/passport")
 const seedRoles = require('./seed/role.seed');
 var authRouter = require('./routes/auth');
+var usersRouter = require('./routes/users');
 var postRouter = require("./routes/post");
 
 var app = express(); 
@@ -23,10 +24,11 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/api/auth', authRouter);
+app.use('/api/users', usersRouter);
 app.use("/api/posts", postRouter);
 
 mongoose.connect(
-  "mongodb://127.0.0.1:27017,127.0.0.1:27018,127.0.0.1:27019/DOAN_NNPTUD?replicaSet=rs0"
+  process.env.MONGO_URI || "mongodb://127.0.0.1:27017/DOAN_NNPTUD"
 );
 
 mongoose.connection.on('connected', async function () {
@@ -40,7 +42,11 @@ mongoose.connection.on('disconnected', function () {
 });
 
 
+const http = require('http');
+const server = http.createServer(app);
+const socketUtil = require('./utils/socket');
+socketUtil.init(server);
 
-app.listen(process.env.PORT, () => {
+server.listen(process.env.PORT, () => {
   console.log(`Server running at http://localhost:${process.env.PORT}`);
 });

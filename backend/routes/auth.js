@@ -8,10 +8,18 @@ let {
   getInfoUser,
   logout,
   googleCallback,
+  forgotPassword,
+  resetPassword,
+  verifyOtp,
+  editProfile,
+  changePassword
 } = require("../controllers/auth");
 let passport = require("passport");
-let {verifyAccessToken, verifyRefreshToken} = require("../middleware/auth")
-const { RegisterValidator, handleValidationErrors } = require("../utils/validatorHandler");
+let { verifyAccessToken, verifyRefreshToken } = require("../middleware/auth");
+const {
+  RegisterValidator,
+  handleValidationErrors,
+} = require("../utils/validatorHandler");
 
 router.post("/register", RegisterValidator, handleValidationErrors, register);
 router.post("/login", login);
@@ -19,7 +27,11 @@ router.post("/login", login);
 router.post("/refresh-token", verifyRefreshToken, refreshToken);
 router.get("/me", verifyAccessToken, getInfoUser);
 router.post("/logout", verifyAccessToken, logout);
-
+router.post("/forgotpassword", forgotPassword);
+router.post("/resetpassword", resetPassword);
+router.post("/verifyotp", verifyOtp);
+router.post("/editprofile", verifyAccessToken, editProfile)
+router.post("/changepassword", verifyAccessToken, changePassword)
 router.get(
   "/google",
   passport.authenticate("google", { scope: ["profile", "email"] }),

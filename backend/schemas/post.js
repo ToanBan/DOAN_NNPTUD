@@ -19,6 +19,13 @@ const postSchema = new mongoose.Schema(
     likeCount: { type: Number, default: 0 },
     commentCount: { type: Number, default: 0 },
     fileCount: { type: Number, default: 0 },
+    shareCount: { type: Number, default: 0 },
+
+    sharedPost: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "post",
+      default: null,
+    },
 
     isDeleted: { type: Boolean, default: false }
   },
