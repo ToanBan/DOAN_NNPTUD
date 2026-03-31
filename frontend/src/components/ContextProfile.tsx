@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import {
   Settings,
   MapPin,
@@ -14,6 +14,10 @@ import {
   ShieldCheck,
   Phone,
   Mail,
+  Heart,
+  MessageSquare,
+  Share2,
+  Clock3,
 } from "lucide-react";
 import handleEditProfile from "../api/user/handleEditProfile";
 import handleChangePassword from "../api/user/handleChangePassword";
@@ -21,22 +25,30 @@ import AlertSuccess from "./AlertSuccess";
 import AlertError from "./AlertError";
 import { useUser } from "../context/authContext";
 interface Post {
-  id: number;
+  postId: string;
   content: string;
   fileUrl: string;
-  type: string;
+  fileType?: string | null;
+  likeCount?: number;
+  commentCount?: number;
+  shareCount?: number;
+  createdAt?: string;
+  isShared?: boolean;
+  sharedPost?: {
+    postId: string;
+    content: string;
+    username: string;
+    avatar: string;
+    fileUrl: string;
+    fileType?: string | null;
+    createdAt?: string;
+  } | null;
 }
 
 interface ContextProfileProps {
   user: any;
   myself: boolean;
-  posts: any;
-}
-
-interface StatsProps {
-  posts: number;
-  followers: number;
-  following: number;
+  posts: Post[];
 }
 
 const ContextProfile: React.FC<ContextProfileProps> = ({
@@ -53,11 +65,46 @@ const ContextProfile: React.FC<ContextProfileProps> = ({
     "none" | "edit-profile" | "change-password"
   >("none");
   const settingsRef = useRef<HTMLDivElement>(null);
-  const [openPostMenuId, setOpenPostMenuId] = useState<number | null>(null);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState(false);
   const [message, setMessage] = useState("");
   const { getProfile } = useUser();
+  const isVideo = (url?: string) => (url ? /\.(mp4|webm|mov|mkv)$/i.test(url) : false);
+
+  const resolveAssetUrl = (url?: string) => {
+    if (!url) {
+      return "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix";
+    }
+
+    if (/^https?:\/\//i.test(url)) {
+      return url;
+    }
+
+    return `${import.meta.env.VITE_API_URL}/${url}`;
+  };
+
+  const formatTimeAgo = (value?: string) => {
+    if (!value) {
+      return "Vua xong";
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return "Vua xong";
+    }
+
+    const diff = Date.now() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+    if (minutes < 1) return "Vua xong";
+    if (minutes < 60) return `${minutes} phut truoc`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} gio truoc`;
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days} ngay truoc`;
+
+    return date.toLocaleDateString("vi-VN");
+  };
+
   const handleSubmitEditProfile = async (
     e: React.FormEvent<HTMLFormElement>,
   ) => {
@@ -306,7 +353,7 @@ const ContextProfile: React.FC<ContextProfileProps> = ({
               </div>
 
               <div className="grid grid-cols-3 gap-2 mt-10 pt-8 border-t border-slate-50">
-                <StatItem label="Posts" value="12" />
+                <StatItem label="Posts" value={String(posts.length)} />
                 <StatItem label="Followers" value={"12"} isCenter />
                 <StatItem label="Following" value="12" />
               </div>
@@ -320,7 +367,96 @@ const ContextProfile: React.FC<ContextProfileProps> = ({
               <TabItem icon={<Bookmark size={18} />} label="Đã lưu" />
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6"></div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+              {posts.map((post: Post) => {
+                const previewFileUrl = post.fileUrl || post.sharedPost?.fileUrl || "";
+                const displayCaption =
+                  post.content || (post.isShared ? "Da chia se bai viet" : "");
+
+                return (
+                  <div
+                    key={post.postId}
+                    className="rounded-[24px] border border-slate-200 bg-white overflow-hidden shadow-sm transition-all hover:shadow-md"
+                  >
+                    <div className="px-4 pt-4 pb-3 border-b border-slate-100">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400 flex items-center gap-1">
+                          <Clock3 size={12} /> {formatTimeAgo(post.createdAt)}
+                        </p>
+                        {post.isShared && (
+                          <p className="text-[11px] uppercase tracking-wide font-black text-blue-600">
+                            Shared
+                          </p>
+                        )}
+                      </div>
+                      {displayCaption && (
+                        <p className="text-sm text-slate-700 leading-6 mt-2">{displayCaption}</p>
+                      )}
+                    </div>
+
+                    {previewFileUrl ? (
+                      <div className="aspect-square w-full bg-slate-100">
+                        {isVideo(previewFileUrl) ? (
+                          <video
+                            src={resolveAssetUrl(previewFileUrl)}
+                            controls
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <img
+                            src={resolveAssetUrl(previewFileUrl)}
+                            alt="profile-post"
+                            className="w-full h-full object-cover"
+                          />
+                        )}
+                      </div>
+                    ) : (
+                      <div className="aspect-square w-full bg-slate-50 p-4 text-sm text-slate-600 leading-6 overflow-auto">
+                        {post.content || post.sharedPost?.content || "Bai viet khong co noi dung"}
+                      </div>
+                    )}
+
+                    {post.sharedPost && (
+                      <div className="px-4 py-3 border-t border-slate-100 bg-slate-50/60">
+                        <p className="text-xs font-bold text-slate-500">
+                          Tu {post.sharedPost.username} . {formatTimeAgo(post.sharedPost.createdAt)}
+                        </p>
+                        <p className="text-xs text-slate-600 mt-1 line-clamp-2">
+                          {post.sharedPost.content || "Bai goc khong co mo ta"}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="px-3 py-2.5 border-t border-slate-100 flex items-center justify-between">
+                      <p className="text-[11px] font-semibold text-slate-400">Tuong tac</p>
+                      <div className="flex items-center gap-3 text-xs font-bold text-slate-500">
+                        <span className="inline-flex items-center gap-1">
+                          <Heart size={14} className="text-rose-500" /> {post.likeCount || 0}
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                          <MessageSquare size={14} className="text-sky-500" /> {post.commentCount || 0}
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                          <Share2 size={14} className="text-blue-600" /> {post.shareCount || 0}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="px-3 pb-3 pt-1">
+                      <p className="text-xs text-slate-500 line-clamp-2">
+                        {post.content || post.sharedPost?.content || "Khong co mo ta"}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {posts.length === 0 && (
+                <div className="col-span-2 md:col-span-3 rounded-2xl border border-dashed border-slate-300 p-10 text-center text-slate-500 font-semibold">
+                  Bạn chưa có bài viết nào.
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

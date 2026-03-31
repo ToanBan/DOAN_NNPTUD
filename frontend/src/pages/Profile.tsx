@@ -1,17 +1,47 @@
 import React, { useState, useEffect } from "react";
 import { useUser } from "../context/authContext";
 import ContextProfile from "../components/ContextProfile";
+import api from "../lib/axios";
 
 interface Post {
-  id: number;
+  postId: string;
   content: string;
   fileUrl: string;
-  type: string;
+  fileType: string | null;
+  likeCount?: number;
+  commentCount?: number;
+  shareCount?: number;
+  createdAt?: string;
+  isShared?: boolean;
+  sharedPost?: {
+    postId: string;
+    content: string;
+    username: string;
+    avatar: string;
+    fileUrl: string;
+    fileType: string | null;
+    createdAt?: string;
+  } | null;
 }
 
 const Profile: React.FC = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const { user } = useUser();
+
+  useEffect(() => {
+    const fetchMyPosts = async () => {
+      try {
+        const res = await api.get("/api/posts/me");
+        setPosts(res.data.posts || []);
+      } catch (_error) {
+        setPosts([]);
+      }
+    };
+
+    if (user?._id) {
+      fetchMyPosts();
+    }
+  }, [user?._id]);
 
 
 
