@@ -25,6 +25,20 @@ const userSchema = new mongoose.Schema(
       default: "",
     },
 
+    phone: {
+      type: String,
+      default: "",
+    },
+    description: {
+      type: String,
+      default: "",
+      maxlength: 500,
+    },
+    address: {
+      type: String,
+      default: "",
+    },
+
     avatarUrl: {
       type: String,
       default: "https://i.sstatic.net/l60Hf.png",
@@ -69,9 +83,10 @@ userSchema.pre("save", function () {
   }
 });
 userSchema.pre("findOneAndUpdate", function () {
-  let salt = bcrypt.genSaltSync(10);
-  console.log(this);
-  this._update.password = bcrypt.hashSync(this._update.password, salt);
+  if (this._update.password) {
+    const salt = bcrypt.genSaltSync(10);
+    this._update.password = bcrypt.hashSync(this._update.password, salt);
+  }
 });
 
 module.exports = mongoose.model("user", userSchema);

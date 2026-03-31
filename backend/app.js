@@ -10,6 +10,7 @@ require("./config/passport")
 const seedRoles = require('./seed/role.seed');
 var authRouter = require('./routes/auth');
 var usersRouter = require('./routes/users');
+var postRouter = require("./routes/post");
 
 var app = express(); 
 app.use(cors({
@@ -24,9 +25,10 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
+app.use("/api/posts", postRouter);
 
 mongoose.connect(
-  'mongodb://127.0.0.1:27017,127.0.0.1:27018,127.0.0.1:27019/DOAN_NNPTUD?replicaSet=rs0'
+  process.env.MONGO_URI || "mongodb://127.0.0.1:27017/DOAN_NNPTUD"
 );
 
 mongoose.connection.on('connected', async function () {

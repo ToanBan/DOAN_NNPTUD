@@ -243,7 +243,7 @@ const Login: React.FC = () => {
             <div className="mt-6">
               <button
                 onClick={() => {
-                  window.location.href = `http://localhost:3000/api/auth/google`;
+                  window.location.href = `${import.meta.env.VITE_API_URL}/api/auth/google`;
                 }}
                 className="w-full flex items-center justify-center gap-3 py-3 border border-slate-200 rounded-2xl hover:bg-slate-50 transition-all font-bold text-slate-700 text-sm"
               >
