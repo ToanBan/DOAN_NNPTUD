@@ -9,6 +9,7 @@ const passport = require("passport");
 require("./config/passport")
 const seedRoles = require('./seed/role.seed');
 var authRouter = require('./routes/auth');
+var usersRouter = require('./routes/users');
 var postRouter = require("./routes/post");
 
 var app = express(); 
@@ -23,6 +24,7 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/api/auth', authRouter);
+app.use('/api/users', usersRouter);
 app.use("/api/posts", postRouter);
 
 mongoose.connect(
@@ -40,9 +42,11 @@ mongoose.connection.on('disconnected', function () {
 });
 
 
+const http = require('http');
+const server = http.createServer(app);
+const socketUtil = require('./utils/socket');
+socketUtil.init(server);
 
-const port = process.env.PORT || 5000;
-
-app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
+server.listen(process.env.PORT, () => {
+  console.log(`Server running at http://localhost:${process.env.PORT}`);
 });
