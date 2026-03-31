@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ path: ['.env.local', '.env'] });
 var createError = require('http-errors');
 var express = require('express');
 var path = require('path');
@@ -40,7 +40,11 @@ mongoose.connection.on('disconnected', function () {
 });
 
 
+const http = require('http');
+const server = http.createServer(app);
+const socketUtil = require('./utils/socket');
+socketUtil.init(server);
 
-app.listen(process.env.PORT, () => {
+server.listen(process.env.PORT, () => {
   console.log(`Server running at http://localhost:${process.env.PORT}`);
 });

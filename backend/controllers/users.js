@@ -1,6 +1,8 @@
 const User = require('../schemas/users');
 const Follow = require('../schemas/follow');
 const mongoose = require('mongoose');
+const Notification = require('../schemas/notification');
+const socketUtil = require('../utils/socket');
 
 exports.searchUsers = async (req, res) => {
   try {
@@ -103,57 +105,121 @@ exports.getProfile = async (req, res) => {
 };
 
 exports.toggleFollow = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const targetUserId = req.params.id;
     const currentUserId = req.user._id;
 
+    if (!mongoose.Types.ObjectId.isValid(targetUserId)) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: "ID người dùng không hợp lệ." });
+    }
+
     if (targetUserId.toString() === currentUserId.toString()) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({ message: "Không thể tự theo dõi chính mình." });
     }
 
-    // Kiểm tra xem đã theo dõi chưa
-    const existingFollow = await Follow.findOne({ follower: currentUserId, following: targetUserId });
-
-    let isFollowingTargetNow = false;
-
-    if (existingFollow) {
-      // Đã theo dõi => Hủy theo dõi
-      await Follow.deleteOne({ _id: existingFollow._id });
-      isFollowingTargetNow = false;
-    } else {
-      // Chưa theo dõi => Thêm theo dõi
-      const newFollow = new Follow({ follower: currentUserId, following: targetUserId });
-      await newFollow.save();
-      isFollowingTargetNow = true;
+    const targetUser = await User.findById(targetUserId).select('_id username avatarUrl').session(session);
+    if (!targetUser) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({ message: "Không tìm thấy người dùng mục tiêu." });
     }
 
-    // Tính lại trạng thái theo dõi 
-    // Xem người kia có đang theo dõi lại mình không để cập nhật thành BẠN BÈ
-    const isTargetFollowingMe = await Follow.exists({ follower: targetUserId, following: currentUserId });
-    
+    const existingFollow = await Follow.findOne({ follower: currentUserId, following: targetUserId }).session(session);
+    const isTargetFollowingMe = await Follow.exists({ follower: targetUserId, following: currentUserId }).session(session);
+    let isFollowingTargetNow = false;
+    let message = "";
+
+    if (existingFollow) {
+      await existingFollow.deleteOne({ session });
+      isFollowingTargetNow = false;
+      message = "Hủy theo dõi thành công";
+    } else {
+      await Follow.create([{ follower: currentUserId, following: targetUserId }], { session });
+      isFollowingTargetNow = true;
+      message = "Theo dõi thành công";
+
+      const notification = await Notification.create([{
+        sender: currentUserId,
+        receiver: targetUserId,
+        type: 'follow',
+        isRead: false
+      }], { session });
+
+      await session.commitTransaction();
+      session.endSession();
+
+      try {
+        const io = socketUtil.getIO();
+        io.to(targetUserId.toString()).emit('new_notification', {
+          _id: notification[0]._id,
+          type: 'follow',
+          sender: {
+            _id: req.user._id,
+            username: req.user.username,
+            avatarUrl: req.user.avatarUrl
+          },
+          createdAt: notification[0].createdAt,
+          isRead: notification[0].isRead
+        });
+      } catch (err) {
+        console.error("Socket emit error:", err);
+      }
+
+      const followersCountAfter = await Follow.countDocuments({ following: targetUserId });
+      const followingCountAfter = await Follow.countDocuments({ follower: targetUserId });
+
+      let relationship = "None";
+      if (isFollowingTargetNow && isTargetFollowingMe) {
+        relationship = "Friend";
+      } else if (isFollowingTargetNow) {
+        relationship = "Following";
+      } else if (isTargetFollowingMe) {
+        relationship = "Follower";
+      }
+
+      return res.status(200).json({
+        message,
+        relationship,
+        stats: {
+          followers: followersCountAfter,
+          following: followingCountAfter
+        }
+      });
+    }
+
+    const followersCount = await Follow.countDocuments({ following: targetUserId }).session(session);
+    const followingCount = await Follow.countDocuments({ follower: targetUserId }).session(session);
+
     let relationship = "None";
     if (isFollowingTargetNow && isTargetFollowingMe) {
       relationship = "Friend";
     } else if (isFollowingTargetNow) {
       relationship = "Following";
     } else if (isTargetFollowingMe) {
-        relationship = "Follower";
+      relationship = "Follower";
     }
 
-    // Đếm lại tổng follower/following để update lên UI
-    const followersCount = await Follow.countDocuments({ following: targetUserId });
-    const followingCount = await Follow.countDocuments({ follower: targetUserId });
+    await session.commitTransaction();
+    session.endSession();
 
     res.status(200).json({
-      message: isFollowingTargetNow ? "Theo dõi thành công" : "Hủy theo dõi thành công",
+      message,
       relationship,
       stats: {
         followers: followersCount,
         following: followingCount
       }
     });
-
   } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
     console.error("Toggle Follow Error:", error);
     res.status(500).json({ message: "Lỗi server khi thao tác follow." });
   }
@@ -189,5 +255,34 @@ exports.getFriends = async (req, res) => {
   } catch (error) {
     console.error("Get Friends Error:", error);
     res.status(500).json({ message: "Lỗi server khi lấy danh sách bạn bè." });
+  }
+};
+
+exports.getNotifications = async (req, res) => {
+  try {
+    const notifications = await Notification.find({ receiver: req.user._id })
+      .populate('sender', 'username fullName avatarUrl')
+      .sort({ createdAt: -1 })
+      .limit(20);
+
+    const unreadCount = await Notification.countDocuments({ receiver: req.user._id, isRead: false });
+
+    res.status(200).json({ notifications, unreadCount });
+  } catch (error) {
+    console.error("Get Notifications Error:", error);
+    res.status(500).json({ message: "Lỗi server khi lấy thông báo." });
+  }
+};
+
+exports.markNotificationsAsRead = async (req, res) => {
+  try {
+    await Notification.updateMany(
+      { receiver: req.user._id, isRead: false },
+      { $set: { isRead: true } }
+    );
+    res.status(200).json({ message: "Đã đánh dấu đọc." });
+  } catch (error) {
+    console.error("Mark Read Error:", error);
+    res.status(500).json({ message: "Lỗi server khi cập nhật." });
   }
 };

@@ -45,6 +45,7 @@ const ContextProfile: React.FC<ContextProfileProps> = ({
   onToggleFollow
 }) => {
   const [showSettings, setShowSettings] = useState(false);
+  const [followTransition, setFollowTransition] = useState(false);
   const [activeModal, setActiveModal] = useState<
     "none" | "edit-profile" | "change-password"
   >("none");
