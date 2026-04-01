@@ -40,8 +40,10 @@ const mapPostToResponse = (postDoc, fileMap, currentUserId) => {
   const user = post.user || {};
   const postFile = fileMap.get(String(post._id));
   const shared = post.sharedPost || null;
-  const sharedUser = shared?.user || {};
-  const sharedFile = shared?._id ? fileMap.get(String(shared._id)) : null;
+  const nestedShared = shared?.sharedPost || null;
+  const displayShared = nestedShared || shared;
+  const displaySharedUser = displayShared?.user || {};
+  const displaySharedFile = displayShared?._id ? fileMap.get(String(displayShared._id)) : null;
 
   return {
     postId: post._id,
@@ -57,16 +59,16 @@ const mapPostToResponse = (postDoc, fileMap, currentUserId) => {
     shareCount: post.shareCount || 0,
     isShared: Boolean(shared),
     isOwner: String(user._id || "") === String(currentUserId || ""),
-    sharedPost: shared
+    sharedPost: displayShared
       ? {
-          postId: shared._id,
-          content: shared.content,
-          username: sharedUser.username || "Unknown",
-          avatar: sharedUser.avatarUrl || "",
-          userId: sharedUser._id || null,
-          fileUrl: sharedFile?.fileUrl || "",
-          fileType: sharedFile?.fileType || null,
-          createdAt: shared.createdAt,
+          postId: displayShared._id,
+          content: displayShared.content,
+          username: displaySharedUser.username || "Unknown",
+          avatar: displaySharedUser.avatarUrl || "",
+          userId: displaySharedUser._id || null,
+          fileUrl: displaySharedFile?.fileUrl || "",
+          fileType: displaySharedFile?.fileType || null,
+          createdAt: displayShared.createdAt,
         }
       : null,
     likedByCurrentUser: false,
@@ -81,6 +83,9 @@ const getPostFileMap = async (posts) => {
     postIds.push(post._id);
     if (post.sharedPost && post.sharedPost._id) {
       postIds.push(post.sharedPost._id);
+      if (post.sharedPost.sharedPost && post.sharedPost.sharedPost._id) {
+        postIds.push(post.sharedPost.sharedPost._id);
+      }
     }
   });
 
@@ -161,10 +166,20 @@ const getPosts = async (req, res, next) => {
       .populate({
         path: "sharedPost",
         match: { isDeleted: false },
-        populate: {
-          path: "user",
-          select: "username avatarUrl",
-        },
+        populate: [
+          {
+            path: "user",
+            select: "username avatarUrl",
+          },
+          {
+            path: "sharedPost",
+            match: { isDeleted: false },
+            populate: {
+              path: "user",
+              select: "username avatarUrl",
+            },
+          },
+        ],
       })
       .sort({ createdAt: -1 })
       .lean();
@@ -190,10 +205,20 @@ const getMyPosts = async (req, res, next) => {
       .populate({
         path: "sharedPost",
         match: { isDeleted: false },
-        populate: {
-          path: "user",
-          select: "username avatarUrl",
-        },
+        populate: [
+          {
+            path: "user",
+            select: "username avatarUrl",
+          },
+          {
+            path: "sharedPost",
+            match: { isDeleted: false },
+            populate: {
+              path: "user",
+              select: "username avatarUrl",
+            },
+          },
+        ],
       })
       .sort({ createdAt: -1 })
       .lean();
@@ -246,10 +271,20 @@ const sharePost = async (req, res, next) => {
       .populate("user", "username avatarUrl")
       .populate({
         path: "sharedPost",
-        populate: {
-          path: "user",
-          select: "username avatarUrl",
-        },
+        populate: [
+          {
+            path: "user",
+            select: "username avatarUrl",
+          },
+          {
+            path: "sharedPost",
+            match: { isDeleted: false },
+            populate: {
+              path: "user",
+              select: "username avatarUrl",
+            },
+          },
+        ],
       })
       .lean();
 

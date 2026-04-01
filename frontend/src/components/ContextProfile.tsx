@@ -336,22 +336,60 @@ const PostCard = ({ post, formatTimeAgo, resolveAssetUrl, isVideo }: any) => (
         </span>
         {post.isShared && <span className="text-[10px] font-black text-blue-600 uppercase">Shared</span>}
       </div>
-      <p className="text-sm text-slate-700 font-medium line-clamp-2">{post.content || "Không có nội dung"}</p>
+      <p className="text-sm text-slate-700 font-medium line-clamp-2">
+        {post.content || (post.isShared ? "Đã chia sẻ một bài viết" : "Không có nội dung")}
+      </p>
     </div>
 
-    <div className="aspect-square bg-slate-100 overflow-hidden">
-      {post.fileUrl ? (
-        isVideo(post.fileUrl) ? (
-          <video src={resolveAssetUrl(post.fileUrl)} className="w-full h-full object-cover" controls />
-        ) : (
-          <img src={resolveAssetUrl(post.fileUrl)} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-        )
-      ) : (
-        <div className="flex items-center justify-center h-full p-6 text-slate-400 italic text-sm text-center">
-          {post.sharedPost?.content || "Văn bản trống"}
+    {post.isShared && post.sharedPost ? (
+      <div className="p-4 bg-slate-50/60 border-b border-slate-100">
+        <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-200/70 flex items-center gap-3">
+            <img
+              src={resolveAssetUrl(post.sharedPost.avatar)}
+              className="w-9 h-9 rounded-full object-cover"
+              alt={post.sharedPost.username || "shared-user"}
+            />
+            <div>
+              <p className="text-[13px] font-bold text-slate-700 leading-tight">{post.sharedPost.username || "Unknown"}</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">{formatTimeAgo(post.sharedPost.createdAt)}</p>
+            </div>
+          </div>
+
+          <div className="p-4">
+            <p className="text-sm text-slate-700 font-medium leading-6">{post.sharedPost.content || "Bài viết không có nội dung"}</p>
+          </div>
+
+          {post.sharedPost.fileUrl && (
+            <div className="aspect-square bg-slate-100 overflow-hidden">
+              {isVideo(post.sharedPost.fileUrl) ? (
+                <video src={resolveAssetUrl(post.sharedPost.fileUrl)} className="w-full h-full object-cover" controls />
+              ) : (
+                <img
+                  src={resolveAssetUrl(post.sharedPost.fileUrl)}
+                  alt=""
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                />
+              )}
+            </div>
+          )}
         </div>
-      )}
-    </div>
+      </div>
+    ) : (
+      <div className="aspect-square bg-slate-100 overflow-hidden">
+        {post.fileUrl ? (
+          isVideo(post.fileUrl) ? (
+            <video src={resolveAssetUrl(post.fileUrl)} className="w-full h-full object-cover" controls />
+          ) : (
+            <img src={resolveAssetUrl(post.fileUrl)} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+          )
+        ) : (
+          <div className="flex items-center justify-center h-full p-6 text-slate-400 italic text-sm text-center">
+            Văn bản trống
+          </div>
+        )}
+      </div>
+    )}
 
     <div className="p-4 flex items-center justify-between bg-slate-50/50">
       <div className="flex gap-4">
