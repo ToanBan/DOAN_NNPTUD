@@ -18,7 +18,6 @@ const Search: React.FC = () => {
   const [results, setResults] = useState<UserResult[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
 
-  console.log(results);
 
   useEffect(() => {
     const fetchResults = async () => {

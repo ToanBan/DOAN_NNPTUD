@@ -14,7 +14,6 @@ module.exports = {
     io.on("connection", (socket) => {
       console.log("Client connected via socket:", socket.id);
 
-      // Khi người dùng đăng nhập, họ sẽ emit sự kiện join kèm theo userId
       socket.on("join", (userId) => {
         socket.join(userId);
         console.log(`User ${userId} joined their personal room.`);
