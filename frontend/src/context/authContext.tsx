@@ -31,6 +31,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const getProfile = async () => {
     const res = await api.get("/api/auth/me");
+    console.log("getProfile response:", res.data);
     setUser(res.data.user)
     return res.data.user;
   };

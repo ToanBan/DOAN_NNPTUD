@@ -23,6 +23,7 @@ const ListPost = () => {
     const fetchPosts = async () => {
       try {
         const res = await api.get("/api/posts");
+        console.log("Fetched posts:", res.data.posts);
         setPosts(res.data.posts || []);
       } catch (_error) {
         setPosts([]);
