@@ -3,49 +3,29 @@ const Follow = require('../schemas/follow');
 const mongoose = require('mongoose');
 const Notification = require('../schemas/notification');
 const socketUtil = require('../utils/socket');
+const Forum = require('../schemas/forum');
 
 exports.searchUsers = async (req, res) => {
   try {
     const { query } = req.query;
     if (!query) {
-      return res.status(200).json({ users: [] });
+      return res.status(200).json({ users: [], forums: [] });
     }
-    
-    // Tìm kiếm username hoặc fullName có chứa chuỗi tìm kiếm (không phân biệt chữ hoa chữ thường)
+
     const regex = new RegExp(query, 'i');
+
     const users = await User.find({
-      $or: [{ username: regex }, { fullName: regex }]
-    }).select('username fullName avatarUrl _id');
+      $or: [{ username: regex }, { fullName: regex }],
+    }).select('username fullName avatarUrl _id').lean();
 
-    // Retrieve relationship per user
-    const currentUserId = req.user._id;
+    const forums = await Forum.find({
+      isDeleted: false,
+      name: regex,
+    }).select('name description createdBy').populate('createdBy', 'username').lean();
 
-    const usersWithRelationship = await Promise.all(users.map(async (u) => {
-      let relationship = 'None';
-      if (u._id.toString() !== currentUserId.toString()) {
-        const isFollowing = await Follow.exists({ follower: currentUserId, following: u._id });
-        const isFollower = await Follow.exists({ follower: u._id, following: currentUserId });
-
-        if (isFollowing && isFollower) {
-          relationship = 'Friend';
-        } else if (isFollowing) {
-          relationship = 'Following';
-        } else if (isFollower) {
-          relationship = 'Follower';
-        }
-      } else {
-        relationship = 'Self';
-      }
-
-      return {
-        ...u.toObject(),
-        relationship
-      };
-    }));
-
-    res.status(200).json({ users: usersWithRelationship });
+    res.status(200).json({ users, forums });
   } catch (error) {
-    console.error("Search Users Error:", error);
+    console.error("Search Error:", error);
     res.status(500).json({ message: "Lỗi server khi tìm kiếm." });
   }
 };
