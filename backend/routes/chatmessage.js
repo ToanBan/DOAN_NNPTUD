@@ -1,0 +1,10 @@
+var express = require("express");
+var router = express.Router();
+const { verifyAccessToken} = require("../middleware/auth");
+const { GetMessagesByUserId, UploadMessageFile, DownloadMessageFile} = require("../controllers/chatmessage");
+const uploadFile = require("../middleware/upload");
+const { uploadPostFile } = require("../controllers/post");
+router.get("/messages/:friendId", verifyAccessToken, GetMessagesByUserId);
+router.post("/upload", verifyAccessToken, uploadFile("messages").single("file"), UploadMessageFile);
+router.get("/download/:filename", verifyAccessToken, DownloadMessageFile);
+module.exports = router;

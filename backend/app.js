@@ -11,7 +11,8 @@ const seedRoles = require('./seed/role.seed');
 var authRouter = require('./routes/auth');
 var usersRouter = require('./routes/users');
 var postRouter = require("./routes/post");
-
+var chatmessageRouter = require("./routes/chatmessage");
+var forumRouter = require("./routes/forum");
 var app = express(); 
 app.use(cors({
   origin: "http://localhost:5173",
@@ -26,7 +27,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use("/api/posts", postRouter);
-
+app.use("/api/chatmessages", chatmessageRouter);
+app.use("/api/forums", forumRouter);
 mongoose.connect(
   process.env.MONGO_URI || "mongodb://127.0.0.1:27017/DOAN_NNPTUD"
 );

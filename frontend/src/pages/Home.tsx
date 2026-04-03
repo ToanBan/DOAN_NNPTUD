@@ -81,26 +81,8 @@ const HomePage: React.FC = () => {
           <ListPost/>
         </main>
 
-        {/* 4. Sidebar Phải (Widget) */}
         <aside className="hidden lg:block lg:col-span-3 space-y-6 sticky top-24 self-start">
-          {/* Birthdays Widget */}
-          <div className="bg-gradient-to-br from-indigo-500 to-blue-600 p-5 rounded-[24px] shadow-lg shadow-blue-100 text-white relative overflow-hidden">
-            <div className="relative z-10">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
-                  <PlusCircle size={20} className="rotate-45" />
-                </div>
-                <h3 className="font-bold">Sinh nhật</h3>
-              </div>
-              <p className="text-sm text-blue-50 leading-relaxed">
-                Hôm nay có <strong>Hoàng Nam</strong> và{" "}
-                <strong>2 người khác</strong> đón tuổi mới. Gửi lời chúc ngay!
-              </p>
-            </div>
-            {/* Abstract circles */}
-            <div className="absolute -top-4 -right-4 w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
-            <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-indigo-400/20 rounded-full blur-3xl"></div>
-          </div>
+         
 
           <ListFriends />
           <div className="px-5 py-2">

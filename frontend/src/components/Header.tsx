@@ -130,12 +130,11 @@ const Header: React.FC = () => {
           </span>
         </Link>
 
-        {/* Search Bar */}
         <div className="hidden lg:flex items-center bg-slate-100/80 px-4 py-2 rounded-2xl gap-3 w-80 border border-transparent focus-within:border-blue-400 focus-within:bg-white transition-all duration-300">
           <Search
             size={18}
             className="text-slate-400 cursor-pointer hover:text-blue-500"
-            onClick={handleSearch} // Click vào icon kính lúp cũng search được
+            onClick={handleSearch} 
           />
           <input
             type="text"
@@ -143,14 +142,12 @@ const Header: React.FC = () => {
             className="bg-transparent border-none outline-none text-sm w-full placeholder:text-slate-400"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={handleKeyDown} // Bắt sự kiện nhấn Enter
+            onKeyDown={handleKeyDown}
           />
         </div>
       </div>
 
-      {/* Right side: Actions & User Dropdown */}
       <div className="flex items-center gap-2 md:gap-4">
-        {/* ... (Phần buttons Actions giữ nguyên) */}
         <div className="flex items-center gap-1 md:gap-2 pr-2 border-r border-slate-200">
           <button className="p-2.5 hover:bg-slate-100 rounded-full transition-colors text-slate-600 active:scale-90">
             <PlusCircle size={20} />
