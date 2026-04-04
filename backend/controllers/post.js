@@ -291,6 +291,8 @@ const getPosts = async (req, res, next) => {
     const friendIds = await getFriendIds(req.user._id);
     const posts = await Post.find({
       isDeleted: false,
+      isHidden: false,
+      privacy: "public",
       $or: [
         { privacy: "public" },
         { user: req.user._id },
@@ -300,7 +302,7 @@ const getPosts = async (req, res, next) => {
       .populate("user", "username avatarUrl")
       .populate({
         path: "sharedPost",
-        match: { isDeleted: false },
+        match: { isDeleted: false, isHidden: false },
         populate: {
           path: "user",
           select: "username avatarUrl",
@@ -747,6 +749,159 @@ const createComment = async (req, res, next) => {
   }
 };
 
+// Hide post from admin (due to report)
+const hidePost = async (req, res, next) => {
+  try {
+    const { postId } = req.params;
+    const { reason } = req.body;
+
+    if (!postId || !reason) {
+      return res.status(400).json({
+        message: "postId and reason are required"
+      });
+    }
+
+    const post = await Post.findByIdAndUpdate(
+      postId,
+      {
+        isHidden: true,
+        hiddenReason: reason,
+        hiddenBy: req.user._id
+      },
+      { new: true }
+    ).populate("user", "username email").populate("hiddenBy", "username");
+
+    if (!post) {
+      return res.status(404).json({
+        message: "Post not found"
+      });
+    }
+
+    return res.status(200).json({
+      message: "Post hidden successfully",
+      post
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Soft delete post (admin)
+const deletePost = async (req, res, next) => {
+  try {
+    const { postId } = req.params;
+    const { reason } = req.body;
+
+    if (!postId || !reason) {
+      return res.status(400).json({
+        message: "postId and reason are required"
+      });
+    }
+
+    const post = await Post.findByIdAndUpdate(
+      postId,
+      {
+        isDeleted: true,
+        hiddenReason: reason,
+        hiddenBy: req.user._id
+      },
+      { new: true }
+    ).populate("user", "username email").populate("hiddenBy", "username");
+
+    if (!post) {
+      return res.status(404).json({
+        message: "Post not found"
+      });
+    }
+
+    return res.status(200).json({
+      message: "Post deleted successfully",
+      post
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Restore post (admin)
+const restorePost = async (req, res, next) => {
+  try {
+    const { postId } = req.params;
+
+    if (!postId) {
+      return res.status(400).json({
+        message: "postId is required"
+      });
+    }
+
+    const post = await Post.findByIdAndUpdate(
+      postId,
+      {
+        isDeleted: false,
+        isHidden: false,
+        hiddenReason: null,
+        hiddenBy: null
+      },
+      { new: true }
+    ).populate("user", "username email");
+
+    if (!post) {
+      return res.status(404).json({
+        message: "Post not found"
+      });
+    }
+
+    return res.status(200).json({
+      message: "Post restored successfully",
+      post
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get hidden/deleted posts (admin only)
+const getHiddenPosts = async (req, res, next) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (page - 1) * limit;
+
+    const posts = await Post.find({
+      $or: [
+        { isHidden: true },
+        { isDeleted: true }
+      ]
+    })
+      .populate("user", "username avatarUrl email")
+      .populate("hiddenBy", "username")
+      .sort({ updatedAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .lean();
+
+    const total = await Post.countDocuments({
+      $or: [
+        { isHidden: true },
+        { isDeleted: true }
+      ]
+    });
+
+    const postFileMap = await getPostFileMap(posts);
+
+    return res.status(200).json({
+      posts: posts.map((post) => mapPostToResponse(post, postFileMap, req.user._id)),
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   uploadPostFile,
   createPost,
@@ -755,6 +910,10 @@ module.exports = {
   getPosts,
   getMyPosts,
   sharePost,
+  hidePost,
+  deletePost,
+  restorePost,
+  getHiddenPosts,
   toggleLikePost,
   getPostComments,
   createComment,

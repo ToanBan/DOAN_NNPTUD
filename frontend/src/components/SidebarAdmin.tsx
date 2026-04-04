@@ -7,6 +7,7 @@ import {
   Settings,
   Share2,
   AlertCircle,
+  EyeOff,
 } from "lucide-react";
 
 const SidebarItem = ({
@@ -101,6 +102,13 @@ const SidebarAdmin = ({
               label="Báo cáo vi phạm"
               active={page === "reports"}
               onClick={() => setPage("reports")}
+            />
+
+            <SidebarItem
+              icon={<EyeOff size={20} />}
+              label="Bài viết ẩn/xóa"
+              active={page === "hidden-posts"}
+              onClick={() => setPage("hidden-posts")}
             />
 
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mt-8 mb-4 px-3">

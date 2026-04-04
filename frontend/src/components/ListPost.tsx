@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Compass, Heart, MessageSquare, Pencil, Send, Share2, Trash2 } from "lucide-react";
 import { useUser } from "../context/authContext";
+import { Heart, MessageSquare, Share2, Compass, X, Globe, ChevronDown, MoreVertical } from "lucide-react";
 import { useSocket } from "../context/socketContext";
 import PostCreator from "./PostCreator";
 import AlertSuccess from "./AlertSuccess";
 import AlertError from "./AlertError";
+import ReportModal from "./ReportModal";
 import api from "../lib/axios";
 import { API_URL } from "../lib/config";
 
@@ -64,6 +66,14 @@ const isVideoFile = (fileType?: string | null, url?: string) => {
 const ListPost = () => {
   const [posts, setPosts] = useState<PostItem[]>([]);
   const [sharingPostId, setSharingPostId] = useState<string | null>(null);
+  const [shareModalPost, setShareModalPost] = useState<any | null>(null);
+  const [shareCaption, setShareCaption] = useState("");
+  const [isSubmittingShare, setIsSubmittingShare] = useState(false);
+  const [shareSuccess, setShareSuccess] = useState(false);
+  const [shareError, setShareError] = useState(false);
+  const [shareMessage, setShareMessage] = useState("");
+  const [reportingPostId, setReportingPostId] = useState<string | null>(null);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [likingPostId, setLikingPostId] = useState<string | null>(null);
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
@@ -325,6 +335,37 @@ const ListPost = () => {
       return;
     }
 
+        {posts.map((post) => (
+          <div
+            key={post.postId}
+            className="bg-white rounded-[32px] shadow-sm border border-slate-200/50 overflow-hidden group transition-all duration-300 hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)]"
+          >
+            <div className="p-5 flex items-center gap-3 justify-between">
+              <div className="flex items-center gap-3">
+                <img
+                  src={resolveAssetUrl(post.avatar)}
+                  className="w-10 h-10 rounded-[14px] object-cover"
+                  alt={post.username}
+                />
+                <div>
+                  <h4 className="font-bold text-slate-800 text-[15px] leading-none">
+                    {post.username}
+                  </h4>
+                  <p className="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1 font-medium">
+                    <Compass size={10} strokeWidth={2.5} /> Viet Nam . {formatTimeAgo(post.createdAt)}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setReportingPostId(post.postId);
+                  setShowReportModal(true);
+                }}
+                className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500 hover:text-slate-700"
+                title="Báo cáo bài viết"
+              >
+                <MoreVertical size={18} />
+              </button>
     try {
       const res = await api.put(`/api/posts/${post.postId}`, {
         content: nextContent,
@@ -780,6 +821,19 @@ const ListPost = () => {
 
       {shareSuccess && <AlertSuccess message={shareMessage} />}
       {shareError && <AlertError messages={[shareMessage]} />}
+      
+      {showReportModal && reportingPostId && (
+        <ReportModal
+          postId={reportingPostId}
+          onClose={() => {
+            setShowReportModal(false);
+            setReportingPostId(null);
+          }}
+          onReportSuccess={() => {
+            // Optional: refresh posts or show message
+          }}
+        />
+      )}
     </>
   );
 };
