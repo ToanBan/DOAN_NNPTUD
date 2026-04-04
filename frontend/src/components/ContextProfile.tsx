@@ -26,13 +26,8 @@ import handleAddForum from "../api/forum/handleAddForum";
 import AlertSuccess from "./AlertSuccess";
 import AlertError from "./AlertError";
 import { useUser } from "../context/authContext";
-<<<<<<< HEAD
 import getMyForum from "../api/forum/getMyForum";
-=======
 import { API_URL } from "../lib/config";
-
-// --- Interfaces ---
->>>>>>> b39890b (final)
 interface Post {
   postId: string;
   content: string;

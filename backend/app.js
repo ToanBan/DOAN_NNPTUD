@@ -33,7 +33,6 @@ mongoose.connect(
   process.env.MONGO_URI || "mongodb://127.0.0.1:27017/DOAN_NNPTUD"
 );
 
-mongoose.connect('mongodb://localhost:27017,localhost:27018,localhost:27019/YourDatabase?replicaSet=rs0');
 
 mongoose.connection.on('connected', async function () {
   console.log("MongoDB connected");

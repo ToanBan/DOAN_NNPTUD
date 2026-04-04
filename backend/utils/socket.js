@@ -135,8 +135,4 @@ module.exports = {
     if (!io) throw new Error("Socket chưa init");
     return io;
   },
-<<<<<<< HEAD
 };
-=======
-};
->>>>>>> b39890b (final)

@@ -165,11 +165,7 @@ const Header: React.FC = () => {
           <Search
             size={18}
             className="text-slate-400 cursor-pointer hover:text-blue-500"
-<<<<<<< HEAD
-            onClick={handleSearch} 
-=======
             onClick={handleSearch}
->>>>>>> b39890b (final)
           />
           <input
             type="text"
