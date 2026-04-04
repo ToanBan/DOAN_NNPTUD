@@ -1,190 +1,387 @@
-import { LayoutGrid, Search, Send, X, Paperclip, Smile } from "lucide-react";
+import {
+  LayoutGrid,
+  Search,
+  Send,
+  X,
+  Paperclip,
+  Smile,
+  FileText,
+  Download,
+  Image as ImageIcon,
+} from "lucide-react";
 import { useEffect, useState, useRef } from "react";
-
+import getMessageByUser from "../api/message/getMessageByUser";
 import { useUser } from "../context/authContext";
 import api from "../lib/axios";
-
-
+import { useSocket } from "../context/socketContext";
 
 interface Friends {
-  id: number;
+  id: string;
   username: string;
   avatar: string;
 }
 
 const ListFriends = () => {
   const { user } = useUser();
+  const { socket } = useSocket();
 
   const [friends, setFriends] = useState<Friends[]>([]);
   const [selectedFriend, setSelectedFriend] = useState<Friends | null>(null);
 
   const [chatHistory, setChatHistory] = useState<any[]>([]);
   const [messageInput, setMessageInput] = useState("");
+
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [filePreviews, setFilePreviews] = useState<{ url: string; type: string; name: string; size: number }[]>([]);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isUploading, setIsUploading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [chatHistory]);
 
   useEffect(() => {
     const fetchFriends = async () => {
       try {
-        const res = await api.get('/api/users/friends');
+        const res = await api.get("/api/users/friends");
         setFriends(res.data.friends || []);
       } catch (error) {
         console.error("Lỗi lấy danh sách bạn bè:", error);
       }
     };
-    if (user) {
-      fetchFriends();
-    }
+    if (user) fetchFriends();
   }, [user]);
 
+  useEffect(() => {
+    if (!socket) return;
 
- 
+    socket.on("receiveMessage", (message) => {
+      if (
+        message.senderId === selectedFriend?.id ||
+        message.senderId === user?._id
+      ) {
+        setChatHistory((prev) => [...prev, message]);
+      }
+    });
 
+    return () => {
+      socket.off("receiveMessage");
+    };
+  }, [socket, selectedFriend, user]);
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      setSelectedFiles((prev) => [...prev, ...files]);
+      const newPreviews = files.map((file) => ({
+        url: file.type.startsWith("image/") ? URL.createObjectURL(file) : "",
+        type: file.type,
+        name: file.name,
+        size: file.size,
+      }));
+      setFilePreviews((prev) => [...prev, ...newPreviews]);
+    }
+    if (e.target) e.target.value = "";
+  };
+
+  const handleRemoveFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    setFilePreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSendMessage = async () => {
+    if (!socket || !selectedFriend) return;
+    if (!messageInput.trim() && selectedFiles.length === 0) return;
+
+    let uploadedFiles: any[] = [];
+
+    if (selectedFiles.length > 0) {
+      const formData = new FormData();
+      selectedFiles.forEach((file) => formData.append("files", file));
+      try {
+        const res = await api.post("/api/chatmessages/upload", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+
+        uploadedFiles = res.data.files;
+      } catch (err) {
+        console.error("Upload lỗi:", err);
+        return;
+      }
+    }
+
+    socket.emit("sendMessage", {
+      senderId: user._id,
+      receiverId: selectedFriend.id,
+      content: messageInput,
+      files: uploadedFiles,
+    });
+
+    setMessageInput("");
+    setSelectedFiles([]);
+    setFilePreviews([]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  useEffect(() => {
+    const fetchMessages = async () => {
+      if (!selectedFriend) return;
+
+      try {
+        const messages = await getMessageByUser(selectedFriend.id);
+        setChatHistory(messages);
+      } catch (err) {
+        console.error("Lỗi load message:", err);
+      }
+    };
+
+    fetchMessages();
+  }, [selectedFriend]);
 
   return (
-    <div className="relative flex gap-6">
-      <div className="bg-white p-5 rounded-[24px] shadow-sm border min-w-[320px]">
+    <div className="relative flex gap-6 h-screen p-6 bg-slate-50">
+      <div className="bg-white p-5 rounded-[24px] shadow-sm border min-w-[320px] h-fit">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="font-bold uppercase text-[11px] tracking-[2px]">
+          <h3 className="font-bold uppercase text-[11px] tracking-[2px] text-slate-500">
             Người liên hệ
           </h3>
-
-          <div className="flex gap-2">
-            <Search size={14} />
-            <LayoutGrid size={14} />
+          <div className="flex gap-2 text-slate-400">
+            <Search size={16} className="cursor-pointer hover:text-blue-500" />
+            <LayoutGrid
+              size={16}
+              className="cursor-pointer hover:text-blue-500"
+            />
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-2">
           {friends.map((friend) => (
             <div
               key={friend.id}
-              onClick={() => setSelectedFriend(friend)}
-              className="flex items-center gap-3 p-2 rounded-xl cursor-pointer hover:bg-slate-50"
+              onClick={() => {
+                setSelectedFriend(friend);
+                setChatHistory([]);
+              }}
+              className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all ${
+                selectedFriend?.id === friend.id
+                  ? "bg-blue-50 shadow-sm"
+                  : "hover:bg-slate-50"
+              }`}
             >
               <img
-                src={
-                  friend.avatar
-                    ? `${import.meta.env.VITE_API_MINIO}/${friend.avatar}`
-                    : `https://api.dicebear.com/7.x/avataaars/svg?seed=${friend.username}`
-                }
-                className="w-10 h-10 rounded-xl"
+                src={friend.avatar}
+                className="w-10 h-10 rounded-xl object-cover"
               />
-
-              <span className="text-sm font-semibold">{friend.username}</span>
+              <span
+                className={`text-sm ${selectedFriend?.id === friend.id ? "font-bold text-blue-600" : "font-semibold text-slate-700"}`}
+              >
+                {friend.username}
+              </span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Chat Window */}
+      {/* CHAT WINDOW */}
       {selectedFriend && (
-        <div className="fixed bottom-6 right-6 w-[400px] h-[550px] bg-white shadow-2xl rounded-[30px] flex flex-col overflow-hidden">
-          {/* Header */}
-          <div className="p-4 border-b flex items-center justify-between">
+        <div className="fixed bottom-6 right-6 w-[420px] h-[650px] bg-white shadow-2xl rounded-[30px] flex flex-col overflow-hidden border border-slate-100">
+          {/* HEADER */}
+          <div className="p-4 border-b flex items-center justify-between bg-white/80 backdrop-blur-md sticky top-0 z-10">
             <div className="flex items-center gap-3">
-              <img
-                src={
-                  selectedFriend.avatar
-                    ? `${import.meta.env.VITE_API_MINIO}/${selectedFriend.avatar}`
-                    : `https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedFriend.username}`
-                }
-                className="w-10 h-10 rounded-full"
-              />
-
+              <div className="relative">
+                <img
+                  src={selectedFriend.avatar}
+                  className="w-10 h-10 rounded-full border shadow-sm"
+                />
+                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+              </div>
               <div>
-                <p className="text-[14px] font-bold">
+                <p className="text-[14px] font-bold text-slate-800">
                   {selectedFriend.username}
+                </p>
+                <p className="text-[11px] text-green-500 font-medium">
+                  Đang hoạt động
                 </p>
               </div>
             </div>
-
-            <button onClick={() => setSelectedFriend(null)}>
-              <X size={20} />
+            <button
+              onClick={() => setSelectedFriend(null)}
+              className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+            >
+              <X size={20} className="text-slate-400" />
             </button>
           </div>
 
-          {/* Messages Area */}
+          {/* MESSAGES */}
           <div
             ref={scrollRef}
-            className="flex-1 p-5 overflow-y-auto space-y-6 bg-[#f8fafc] custom-scrollbar"
+            className="flex-1 p-5 overflow-y-auto space-y-6 bg-[#f8fafc] scroll-smooth"
           >
             {chatHistory.length === 0 && (
               <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-3 opacity-60">
-                <div className="p-4 bg-white rounded-full shadow-sm">
-                  <Smile size={32} className="text-blue-400" />
-                </div>
-                <p className="text-[13px] font-medium italic">
-                  Hãy bắt đầu cuộc trò chuyện...
+                <Smile size={40} />
+                <p className="text-[13px] italic text-center px-10">
+                  Hãy bắt đầu cuộc trò chuyện với {selectedFriend.username}
                 </p>
               </div>
             )}
 
             {chatHistory.map((msg, idx) => {
-              const isMe = msg.senderId === user?.id;
+              const isMe = msg.senderId === user?._id;
+              const files = msg.files || [];
+
+              // Tương thích ngược với dữ liệu cũ (chỉ 1 file)
+              if (!msg.files && msg.fileUrl) {
+                files.push({
+                  url: msg.fileUrl,
+                  type: msg.fileType || "file",
+                });
+              }
 
               return (
                 <div
                   key={idx}
-                  className={`flex ${isMe ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-2 duration-300`}
+                  className={`flex ${isMe ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    className={`relative max-w-[85%] group ${
-                      isMe
-                        ? "bg-gradient-to-br from-blue-600 to-blue-500 text-white rounded-[20px] rounded-tr-none shadow-blue-100"
-                        : "bg-white border border-slate-100 text-slate-700 rounded-[20px] rounded-tl-none shadow-sm"
-                    } p-3.5 transition-all hover:shadow-md`}
+                    className={`max-w-[85%] group relative ${isMe ? "bg-blue-600 text-white" : "bg-white border text-slate-800"} p-3 rounded-2xl shadow-sm`}
                   >
-                    {msg.type === "file" ? (
-                      <div className="flex flex-col gap-3 min-w-[180px]">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`p-2 rounded-lg ${isMe ? "bg-white/20" : "bg-blue-50"}`}
-                          >
-                            <Paperclip
-                              size={18}
-                              className={isMe ? "text-white" : "text-blue-600"}
-                            />
-                          </div>
-                          <div className="flex-1 overflow-hidden">
-                            <p className="text-[13px] font-semibold truncate leading-tight">
-                              {msg.content}
-                            </p>
-                            <p
-                              className={`text-[10px] uppercase tracking-wider mt-0.5 opacity-70`}
-                            >
-                              File tài liệu
-                            </p>
-                          </div>
-                        </div>
-
-                       
-                      </div>
-                    ) : (
-                      <p className="text-[14px] leading-relaxed px-1 font-medium">
+                    {msg.content && (
+                      <p className="text-[14px] leading-relaxed">
                         {msg.content}
                       </p>
                     )}
+
+                    {files.length > 0 && (
+                      <div className="mt-2 space-y-2">
+                        {files.map((file: any, fileIdx: number) => {
+                          const isImage = file.type?.startsWith("image/");
+                          return (
+                            <div
+                              key={fileIdx}
+                              className={`rounded-lg overflow-hidden flex ${isMe ? "bg-blue-700/30" : "bg-slate-50"} p-2 border border-black/5`}
+                            >
+                              {isImage ? (
+                                <div className="relative group/img flex-1">
+                                  <img
+                                    src={file.url}
+                                    className="w-full rounded-md object-cover max-h-60"
+                                    alt="attachment"
+                                  />
+                                  <a
+                                    href={`/api/chatmessages/download/${file.url.split("/").pop()}`}
+                                    download
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity rounded-md"
+                                  >
+                                    <Download className="text-white" size={24} />
+                                  </a>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-3 py-1 px-2 w-full">
+                                  <div
+                                    className={`p-2 rounded-lg ${isMe ? "bg-blue-500" : "bg-blue-100 text-blue-600"}`}
+                                  >
+                                    <FileText size={20} />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p
+                                      className={`text-[12px] font-medium truncate ${isMe ? "text-blue-50" : "text-slate-700"}`}
+                                    >
+                                      {file.name || "Tài liệu đính kèm"}
+                                    </p>
+                                    <p
+                                      className={`text-[10px] opacity-70 ${isMe ? "text-white" : "text-slate-500"}`}
+                                    >
+                                      {file.size ? `${(file.size / 1024).toFixed(1)} KB - ` : ""}Bấm để tải xuống
+                                    </p>
+                                  </div>
+                                  <a
+                                    href={file.url}
+                                    download
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className={`p-2 rounded-full transition-colors ${isMe ? "hover:bg-blue-500 text-white" : "hover:bg-slate-200 text-slate-500"}`}
+                                  >
+                                    <Download size={18} />
+                                  </a>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <span
+                      className={`text-[9px] mt-1 block opacity-60 ${isMe ? "text-right" : "text-left"}`}
+                    >
+                      {new Date(msg.createdAt).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
                   </div>
                 </div>
               );
             })}
           </div>
 
-          {/* Input */}
-          <div className="p-4 border-t">
-            <div className="bg-slate-100 rounded-[20px] px-4 py-2 flex items-center gap-3">
+          {/* INPUT AREA */}
+          <div className="p-4 border-t bg-white">
+            {/* MULTI FILE PREVIEW PANEL */}
+            {filePreviews.length > 0 && (
+              <div className="mb-3 px-1 flex gap-2 overflow-x-auto pb-2 scroll-smooth">
+                {filePreviews.map((preview, index) => (
+                  <div
+                    key={index}
+                    className="relative shrink-0 w-48 p-2 bg-blue-50 rounded-2xl border border-blue-100 flex items-center gap-3 animate-in fade-in zoom-in-95"
+                  >
+                    {preview.url ? (
+                      <img
+                        src={preview.url}
+                        className="w-12 h-12 rounded-lg object-cover border border-white shadow-sm"
+                        alt="preview"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-lg bg-blue-200 flex items-center justify-center text-blue-600">
+                        <FileText size={20} />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0 pr-6">
+                      <p className="text-[11px] font-bold text-blue-700 truncate">
+                        {preview.name}
+                      </p>
+                      <p className="text-[9px] text-blue-500 mt-0.5">
+                        {(preview.size / 1024).toFixed(1)} KB
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleRemoveFile(index)}
+                      className="absolute top-1 right-1 p-1 bg-white hover:bg-slate-200 rounded-full text-slate-500 transition-colors shadow-sm"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="bg-slate-100 rounded-[24px] px-4 py-2.5 flex items-center gap-3 transition-all focus-within:bg-slate-200 focus-within:ring-2 ring-blue-100">
               <input
                 type="file"
+                multiple
                 hidden
                 ref={fileInputRef}
+                onChange={handleFileChange}
               />
 
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="text-slate-500 hover:text-blue-600"
+                className="text-slate-500 hover:text-blue-600 p-1 transition-colors"
               >
                 <Paperclip size={20} />
               </button>
@@ -193,12 +390,23 @@ const ListFriends = () => {
                 type="text"
                 value={messageInput}
                 onChange={(e) => setMessageInput(e.target.value)}
-                placeholder="Aa"
-                className="bg-transparent flex-1 outline-none"
+                placeholder="Nhập tin nhắn..."
+                className="bg-transparent flex-1 outline-none text-[14px] text-slate-700"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSendMessage();
+                }}
               />
 
-              <button className="text-blue-600">
-                <Send size={20} />
+              <button
+                onClick={handleSendMessage}
+                disabled={!messageInput.trim() && selectedFiles.length === 0}
+                className={`p-2 rounded-full transition-all ${
+                  messageInput.trim() || selectedFiles.length > 0
+                    ? "bg-blue-600 text-white shadow-md hover:scale-110 active:scale-95"
+                    : "text-slate-300"
+                }`}
+              >
+                <Send size={18} />
               </button>
             </div>
           </div>
