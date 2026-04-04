@@ -7,8 +7,7 @@ const getMessageByUser = async(friendId: string) => {
       senderId: msg.sender,
       receiverId: msg.receiver,
       content: msg.content,
-      fileUrl: msg.fileUrl,
-      fileType: msg.fileType,
+      files: msg.files,
       createdAt: msg.createdAt,
     }));
 

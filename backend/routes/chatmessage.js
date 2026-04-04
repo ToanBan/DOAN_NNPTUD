@@ -5,6 +5,6 @@ const { GetMessagesByUserId, UploadMessageFile, DownloadMessageFile} = require("
 const uploadFile = require("../middleware/upload");
 const { uploadPostFile } = require("../controllers/post");
 router.get("/messages/:friendId", verifyAccessToken, GetMessagesByUserId);
-router.post("/upload", verifyAccessToken, uploadFile("messages").single("file"), UploadMessageFile);
+router.post("/upload", verifyAccessToken, uploadFile("messages").array("files", 10), UploadMessageFile);
 router.get("/download/:filename", verifyAccessToken, DownloadMessageFile);
 module.exports = router;
