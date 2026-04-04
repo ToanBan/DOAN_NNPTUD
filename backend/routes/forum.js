@@ -8,11 +8,6 @@ const {
   deleteForum,
   joinForum,
   leaveForum,
-  getForumPosts,
-  getForumPostById,
-  createForumPost,
-  updateForumPost,
-  deleteForumPost,
   getMyForums,
 } = require("../controllers/forum");
 
@@ -27,7 +22,5 @@ router.put("/:forumId", verifyAccessToken, updateForum);
 router.delete("/:forumId", verifyAccessToken, deleteForum);
 router.post("/:forumId/join", verifyAccessToken, joinForum);
 router.delete("/:forumId/leave", verifyAccessToken, leaveForum);
-router.get("/:forumId/posts", verifyAccessToken, getForumPosts);
-router.get("/:forumId/posts/:postId", verifyAccessToken, getForumPostById);
-router.delete("/:forumId/posts/:postId", verifyAccessToken, deleteForumPost);
+
 module.exports = router;

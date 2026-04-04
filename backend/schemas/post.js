@@ -5,7 +5,7 @@ const postSchema = new mongoose.Schema(
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "user",
-      required: true
+      required: true,
     },
 
     content: { type: String, default: "" },
@@ -13,7 +13,7 @@ const postSchema = new mongoose.Schema(
     privacy: {
       type: String,
       enum: ["public", "private", "friends"],
-      default: "public"
+      default: "public",
     },
 
     likeCount: { type: Number, default: 0 },
@@ -27,12 +27,17 @@ const postSchema = new mongoose.Schema(
       default: null,
     },
 
+    forum: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "forum",
+      default: null,
+    },
     isDeleted: { type: Boolean, default: false },
     isHidden: { type: Boolean, default: false },
     hiddenReason: String,
-    hiddenBy: { type: mongoose.Schema.Types.ObjectId, ref: "user" }
+    hiddenBy: { type: mongoose.Schema.Types.ObjectId, ref: "user" },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("post", postSchema);

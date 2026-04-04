@@ -93,7 +93,7 @@ const getEngagementData = async (posts, currentUserId) => {
   const likedPostIds = new Set(
     likes
       .filter((like) => String(like.user) === String(currentUserId))
-      .map((like) => String(like.post))
+      .map((like) => String(like.post)),
   );
 
   const commentsByPostId = new Map();
@@ -116,7 +116,7 @@ const mapPostToResponse = (
   fileMap,
   currentUserId,
   likedPostIds = new Set(),
-  commentsByPostId = new Map()
+  commentsByPostId = new Map(),
 ) => {
   const post = postDoc.toObject ? postDoc.toObject() : postDoc;
   const user = post.user || {};
@@ -185,7 +185,9 @@ const getPostFileMap = async (posts) => {
 const ALLOWED_PRIVACY = new Set(["public", "private", "friends"]);
 
 const getFriendIds = async (userId) => {
-  const following = await Follow.find({ follower: userId }).select("following").lean();
+  const following = await Follow.find({ follower: userId })
+    .select("following")
+    .lean();
   const followingIds = following.map((item) => item.following);
 
   if (!followingIds.length) {
@@ -222,54 +224,78 @@ const canViewPost = (post, currentUserId, friendIdsSet = new Set()) => {
 };
 
 const createPost = async (req, res, next) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
-    const content = typeof req.body.content === "string" ? req.body.content.trim() : "";
-    const privacy = typeof req.body.privacy === "string" ? req.body.privacy : "public";
+    if (!req.user?._id) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const content =
+      typeof req.body.content === "string" ? req.body.content.trim() : "";
+
+    const privacy =
+      typeof req.body.privacy === "string" ? req.body.privacy : "public";
+
+    const forum = typeof req.body.forum === "string" ? req.body.forum : null;
 
     if (!ALLOWED_PRIVACY.has(privacy)) {
       return res.status(400).json({ message: "Invalid privacy" });
     }
 
-    if (!content && !req.file) {
-      return res.status(400).json({ message: "Post content or file is required" });
-    }
+    const files = req.files || (req.file ? [req.file] : []);
 
-    const newPost = await Post.create({
-      user: req.user._id,
-      content,
-      privacy,
-      fileCount: req.file ? 1 : 0,
-      sharedPost: null,
-    });
-
-    let postFile = null;
-    if (req.file) {
-      postFile = await PostFile.create({
-        post: newPost._id,
-        fileUrl: `uploads/posts/${req.file.filename}`,
-        fileType: getFileType(req.file.mimetype),
-        fileName: req.file.originalname,
-        fileSize: req.file.size,
+    if (!content && files.length === 0) {
+      return res.status(400).json({
+        message: "Post content or file is required",
       });
     }
 
+    const [newPost] = await Post.create(
+      [
+        {
+          user: req.user._id,
+          content,
+          privacy,
+          fileCount: files.length,
+          sharedPost: null,
+          forum: forum || null,
+        },
+      ],
+      { session },
+    );
+
+    let postFiles = [];
+
+    if (files.length > 0) {
+      const fileDocs = files.map((file) => ({
+        post: newPost._id,
+        fileUrl: `uploads/posts/${file.filename}`,
+        fileType: getFileType(file.mimetype),
+        fileName: file.originalname,
+        fileSize: file.size,
+      }));
+
+      postFiles = await PostFile.insertMany(fileDocs, { session });
+    }
+
+    await session.commitTransaction();
+    session.endSession();
+
     const populatedPost = await Post.findById(newPost._id)
       .populate("user", "username avatarUrl")
-      .populate({
-        path: "sharedPost",
-        populate: {
-          path: "user",
-          select: "username avatarUrl",
-        },
-      })
       .lean();
 
     const fileMap = new Map();
-    if (postFile) {
-      fileMap.set(String(newPost._id), postFile);
+    if (postFiles.length > 0) {
+      fileMap.set(String(newPost._id), postFiles[0]);
     }
 
-    const engagementData = await getEngagementData([populatedPost], req.user._id);
+    const engagementData = await getEngagementData(
+      [populatedPost],
+      req.user._id,
+    );
 
     return res.status(201).json({
       message: "Create post success",
@@ -278,10 +304,19 @@ const createPost = async (req, res, next) => {
         fileMap,
         req.user._id,
         engagementData.likedPostIds,
-        engagementData.commentsByPostId
+        engagementData.commentsByPostId,
       ),
     });
   } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    const files = req.files || (req.file ? [req.file] : []);
+    files.forEach((file) => {
+      if (file?.path) {
+        fs.unlink(file.path, () => {});
+      }
+    });
+
     next(error);
   }
 };
@@ -292,6 +327,7 @@ const getPosts = async (req, res, next) => {
     const posts = await Post.find({
       isDeleted: false,
       isHidden: false,
+      forum: null,
       $or: [
         { privacy: "public" },
         { user: req.user._id },
@@ -321,8 +357,8 @@ const getPosts = async (req, res, next) => {
           postFileMap,
           req.user._id,
           engagementData.likedPostIds,
-          engagementData.commentsByPostId
-        )
+          engagementData.commentsByPostId,
+        ),
       ),
     });
   } catch (error) {
@@ -359,8 +395,8 @@ const getMyPosts = async (req, res, next) => {
           postFileMap,
           req.user._id,
           engagementData.likedPostIds,
-          engagementData.commentsByPostId
-        )
+          engagementData.commentsByPostId,
+        ),
       ),
     });
   } catch (error) {
@@ -372,9 +408,13 @@ const sharePost = async (req, res, next) => {
   try {
     const { postId } = req.params;
     const rawCaption =
-      typeof req.body.caption === "string" ? req.body.caption : req.body.content;
+      typeof req.body.caption === "string"
+        ? req.body.caption
+        : req.body.content;
     const shareContent =
-      typeof rawCaption === "string" && rawCaption.trim() ? rawCaption.trim() : "";
+      typeof rawCaption === "string" && rawCaption.trim()
+        ? rawCaption.trim()
+        : "";
 
     const sourcePost = await Post.findOne({
       _id: postId,
@@ -413,7 +453,10 @@ const sharePost = async (req, res, next) => {
       .lean();
 
     const postFileMap = await getPostFileMap([populatedSharedPost]);
-    const engagementData = await getEngagementData([populatedSharedPost], req.user._id);
+    const engagementData = await getEngagementData(
+      [populatedSharedPost],
+      req.user._id,
+    );
 
     return res.status(201).json({
       message: "Share post success",
@@ -422,7 +465,7 @@ const sharePost = async (req, res, next) => {
         postFileMap,
         req.user._id,
         engagementData.likedPostIds,
-        engagementData.commentsByPostId
+        engagementData.commentsByPostId,
       ),
     });
   } catch (error) {
@@ -433,8 +476,10 @@ const sharePost = async (req, res, next) => {
 const updatePost = async (req, res, next) => {
   try {
     const { postId } = req.params;
-    const content = typeof req.body.content === "string" ? req.body.content.trim() : "";
-    const privacy = typeof req.body.privacy === "string" ? req.body.privacy : undefined;
+    const content =
+      typeof req.body.content === "string" ? req.body.content.trim() : "";
+    const privacy =
+      typeof req.body.privacy === "string" ? req.body.privacy : undefined;
 
     if (!mongoose.Types.ObjectId.isValid(postId)) {
       return res.status(400).json({ message: "Invalid post id" });
@@ -477,7 +522,10 @@ const updatePost = async (req, res, next) => {
       .lean();
 
     const postFileMap = await getPostFileMap([populatedPost]);
-    const engagementData = await getEngagementData([populatedPost], req.user._id);
+    const engagementData = await getEngagementData(
+      [populatedPost],
+      req.user._id,
+    );
 
     return res.json({
       message: "Update post success",
@@ -486,7 +534,7 @@ const updatePost = async (req, res, next) => {
         postFileMap,
         req.user._id,
         engagementData.likedPostIds,
-        engagementData.commentsByPostId
+        engagementData.commentsByPostId,
       ),
     });
   } catch (error) {
@@ -516,8 +564,14 @@ const deletePost = async (req, res, next) => {
     await post.save();
 
     await Promise.all([
-      PostFile.updateMany({ post: post._id, isDeleted: false }, { $set: { isDeleted: true } }),
-      Comment.updateMany({ post: post._id, isDeleted: false }, { $set: { isDeleted: true } }),
+      PostFile.updateMany(
+        { post: post._id, isDeleted: false },
+        { $set: { isDeleted: true } },
+      ),
+      Comment.updateMany(
+        { post: post._id, isDeleted: false },
+        { $set: { isDeleted: true } },
+      ),
       Like.deleteMany({ post: post._id }),
       Notification.deleteMany({ post: post._id }),
     ]);
@@ -531,7 +585,12 @@ const deletePost = async (req, res, next) => {
   }
 };
 
-const emitNotification = async (notification, actor, receiverId, post = null) => {
+const emitNotification = async (
+  notification,
+  actor,
+  receiverId,
+  post = null,
+) => {
   if (!notification || !receiverId) {
     return;
   }
@@ -570,7 +629,7 @@ const toggleLikePost = async (req, res, next) => {
 
     const post = await Post.findOne({ _id: postId, isDeleted: false }).populate(
       "user",
-      "username avatarUrl"
+      "username avatarUrl",
     );
 
     if (!post) {
@@ -578,7 +637,13 @@ const toggleLikePost = async (req, res, next) => {
     }
 
     const friendIds = await getFriendIds(req.user._id);
-    if (!canViewPost(post, req.user._id, new Set(friendIds.map((id) => String(id))))) {
+    if (
+      !canViewPost(
+        post,
+        req.user._id,
+        new Set(friendIds.map((id) => String(id))),
+      )
+    ) {
       return res.status(403).json({ message: "You cannot access this post" });
     }
 
@@ -640,7 +705,13 @@ const getPostComments = async (req, res, next) => {
     }
 
     const friendIds = await getFriendIds(req.user._id);
-    if (!canViewPost(post, req.user._id, new Set(friendIds.map((id) => String(id))))) {
+    if (
+      !canViewPost(
+        post,
+        req.user._id,
+        new Set(friendIds.map((id) => String(id))),
+      )
+    ) {
       return res.status(403).json({ message: "You cannot access this post" });
     }
 
@@ -654,7 +725,9 @@ const getPostComments = async (req, res, next) => {
 
     return res.json({
       message: "Get comments success",
-      comments: comments.map((comment) => mapCommentToResponse(comment, req.user._id)),
+      comments: comments.map((comment) =>
+        mapCommentToResponse(comment, req.user._id),
+      ),
     });
   } catch (error) {
     next(error);
@@ -664,9 +737,11 @@ const getPostComments = async (req, res, next) => {
 const createComment = async (req, res, next) => {
   try {
     const { postId } = req.params;
-    const content = typeof req.body.content === "string" ? req.body.content.trim() : "";
+    const content =
+      typeof req.body.content === "string" ? req.body.content.trim() : "";
     const parentComment =
-      typeof req.body.parentComment === "string" && req.body.parentComment.trim()
+      typeof req.body.parentComment === "string" &&
+      req.body.parentComment.trim()
         ? req.body.parentComment.trim()
         : null;
 
@@ -680,7 +755,7 @@ const createComment = async (req, res, next) => {
 
     const post = await Post.findOne({ _id: postId, isDeleted: false }).populate(
       "user",
-      "username avatarUrl"
+      "username avatarUrl",
     );
 
     if (!post) {
@@ -688,7 +763,13 @@ const createComment = async (req, res, next) => {
     }
 
     const friendIds = await getFriendIds(req.user._id);
-    if (!canViewPost(post, req.user._id, new Set(friendIds.map((id) => String(id))))) {
+    if (
+      !canViewPost(
+        post,
+        req.user._id,
+        new Set(friendIds.map((id) => String(id))),
+      )
+    ) {
       return res.status(403).json({ message: "You cannot access this post" });
     }
 
@@ -748,7 +829,6 @@ const createComment = async (req, res, next) => {
   }
 };
 
-// Hide post from admin (due to report)
 const hidePost = async (req, res, next) => {
   try {
     const { postId } = req.params;
@@ -756,7 +836,7 @@ const hidePost = async (req, res, next) => {
 
     if (!postId || !reason) {
       return res.status(400).json({
-        message: "postId and reason are required"
+        message: "postId and reason are required",
       });
     }
 
@@ -765,27 +845,28 @@ const hidePost = async (req, res, next) => {
       {
         isHidden: true,
         hiddenReason: reason,
-        hiddenBy: req.user._id
+        hiddenBy: req.user._id,
       },
-      { new: true }
-    ).populate("user", "username email").populate("hiddenBy", "username");
+      { new: true },
+    )
+      .populate("user", "username email")
+      .populate("hiddenBy", "username");
 
     if (!post) {
       return res.status(404).json({
-        message: "Post not found"
+        message: "Post not found",
       });
     }
 
     return res.status(200).json({
       message: "Post hidden successfully",
-      post
+      post,
     });
   } catch (error) {
     next(error);
   }
 };
 
-// Soft delete post (admin)
 const adminDeletePost = async (req, res, next) => {
   try {
     const { postId } = req.params;
@@ -793,7 +874,7 @@ const adminDeletePost = async (req, res, next) => {
 
     if (!postId || !reason) {
       return res.status(400).json({
-        message: "postId and reason are required"
+        message: "postId and reason are required",
       });
     }
 
@@ -802,34 +883,35 @@ const adminDeletePost = async (req, res, next) => {
       {
         isDeleted: true,
         hiddenReason: reason,
-        hiddenBy: req.user._id
+        hiddenBy: req.user._id,
       },
-      { new: true }
-    ).populate("user", "username email").populate("hiddenBy", "username");
+      { new: true },
+    )
+      .populate("user", "username email")
+      .populate("hiddenBy", "username");
 
     if (!post) {
       return res.status(404).json({
-        message: "Post not found"
+        message: "Post not found",
       });
     }
 
     return res.status(200).json({
       message: "Post deleted successfully",
-      post
+      post,
     });
   } catch (error) {
     next(error);
   }
 };
 
-// Restore post (admin)
 const restorePost = async (req, res, next) => {
   try {
     const { postId } = req.params;
 
     if (!postId) {
       return res.status(400).json({
-        message: "postId is required"
+        message: "postId is required",
       });
     }
 
@@ -839,20 +921,20 @@ const restorePost = async (req, res, next) => {
         isDeleted: false,
         isHidden: false,
         hiddenReason: null,
-        hiddenBy: null
+        hiddenBy: null,
       },
-      { new: true }
+      { new: true },
     ).populate("user", "username email");
 
     if (!post) {
       return res.status(404).json({
-        message: "Post not found"
+        message: "Post not found",
       });
     }
 
     return res.status(200).json({
       message: "Post restored successfully",
-      post
+      post,
     });
   } catch (error) {
     next(error);
@@ -866,10 +948,7 @@ const getHiddenPosts = async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const posts = await Post.find({
-      $or: [
-        { isHidden: true },
-        { isDeleted: true }
-      ]
+      $or: [{ isHidden: true }, { isDeleted: true }],
     })
       .populate("user", "username avatarUrl email")
       .populate("hiddenBy", "username")
@@ -879,27 +958,70 @@ const getHiddenPosts = async (req, res, next) => {
       .lean();
 
     const total = await Post.countDocuments({
-      $or: [
-        { isHidden: true },
-        { isDeleted: true }
-      ]
+      $or: [{ isHidden: true }, { isDeleted: true }],
     });
 
     const postFileMap = await getPostFileMap(posts);
 
     return res.status(200).json({
-      posts: posts.map((post) => mapPostToResponse(post, postFileMap, req.user._id)),
+      posts: posts.map((post) =>
+        mapPostToResponse(post, postFileMap, req.user._id),
+      ),
       pagination: {
         total,
         page: parseInt(page),
         limit: parseInt(limit),
-        pages: Math.ceil(total / limit)
-      }
+        pages: Math.ceil(total / limit),
+      },
     });
   } catch (error) {
     next(error);
   }
 };
+
+const getForumPosts = async (req, res, next) => {
+  try {
+    const { forumId } = req.params;
+
+    const forum = await Forum.findOne({
+      _id: forumId,
+      isDeleted: false,
+    });
+
+    if (!forum) {
+      return res.status(404).json({ message: "Forum not found" });
+    }
+
+    const posts = await Post.find({
+      forum: forumId,
+      isDeleted: false,
+      isHidden: false,
+    })
+      .populate("user", "username avatarUrl")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const postFileMap = await getPostFileMap(posts);
+    const engagementData = await getEngagementData(posts, req.user._id);
+
+    return res.json({
+      message: "Get forum posts success",
+      posts: posts.map((post) =>
+        mapPostToResponse(
+          post,
+          postFileMap,
+          req.user._id,
+          engagementData.likedPostIds,
+          engagementData.commentsByPostId,
+        ),
+      ),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
 
 module.exports = {
   uploadPostFile,
@@ -916,4 +1038,5 @@ module.exports = {
   toggleLikePost,
   getPostComments,
   createComment,
+  getForumPosts,
 };

@@ -14,15 +14,18 @@ import api from "../lib/axios";
 interface PostCreatorProps {
   username: string;
   onPostCreated?: (newPost: any) => void;
+  forumId?: string;
 }
 
-const PostCreator = ({ username, onPostCreated }: PostCreatorProps) => {
+const PostCreator = ({ username, onPostCreated, forumId }: PostCreatorProps) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState(false);
   const [content, setContent] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [privacy, setPrivacy] = useState<"public" | "private" | "friends">("public");
+  const [privacy, setPrivacy] = useState<"public" | "private" | "friends">(
+    "public",
+  );
   const [loading, setLoading] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -43,9 +46,7 @@ const PostCreator = ({ username, onPostCreated }: PostCreatorProps) => {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!content.trim() && !file) {
-      return;
-    }
+    if (!content.trim() && !file) return;
 
     setLoading(true);
 
@@ -58,6 +59,10 @@ const PostCreator = ({ username, onPostCreated }: PostCreatorProps) => {
         formData.append("file", file);
       }
 
+      if (forumId) {
+        formData.append("forum", forumId);
+      }
+
       const res = await api.post("/api/posts", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
@@ -67,9 +72,10 @@ const PostCreator = ({ username, onPostCreated }: PostCreatorProps) => {
       onPostCreated?.(res.data.post);
       setSuccess(true);
       setTimeout(() => setSuccess(false), 2500);
+
       resetForm();
       setIsModalOpen(false);
-    } catch (_error) {
+    } catch (err) {
       setError(true);
       setTimeout(() => setError(false), 2500);
     } finally {
@@ -97,18 +103,27 @@ const PostCreator = ({ username, onPostCreated }: PostCreatorProps) => {
 
         <div className="flex gap-2 sm:gap-4 pt-4 border-t border-slate-100">
           <button className="flex-1 flex items-center justify-center gap-2 py-2.5 hover:bg-rose-50 rounded-xl text-rose-500 font-semibold text-xs transition-all group">
-            <Video size={18} className="group-hover:scale-110 transition-transform" />
+            <Video
+              size={18}
+              className="group-hover:scale-110 transition-transform"
+            />
             <span className="hidden sm:inline">Truc tiep</span>
           </button>
           <button
             onClick={() => setIsModalOpen(true)}
             className="flex-1 flex items-center justify-center gap-2 py-2.5 hover:bg-emerald-50 rounded-xl text-emerald-500 font-semibold text-xs transition-all group"
           >
-            <ImageIcon size={18} className="group-hover:scale-110 transition-transform" />
+            <ImageIcon
+              size={18}
+              className="group-hover:scale-110 transition-transform"
+            />
             <span className="hidden sm:inline">Anh/Video</span>
           </button>
           <button className="flex-1 flex items-center justify-center gap-2 py-2.5 hover:bg-orange-50 rounded-xl text-orange-500 font-semibold text-xs transition-all group">
-            <Smile size={18} className="group-hover:scale-110 transition-transform" />
+            <Smile
+              size={18}
+              className="group-hover:scale-110 transition-transform"
+            />
             <span className="hidden sm:inline">Cam xuc</span>
           </button>
         </div>
@@ -145,13 +160,20 @@ const PostCreator = ({ username, onPostCreated }: PostCreatorProps) => {
                     />
                   </div>
                   <div>
-                    <p className="font-bold text-slate-900 leading-tight mb-1">{username}</p>
+                    <p className="font-bold text-slate-900 leading-tight mb-1">
+                      {username}
+                    </p>
                     <label className="relative inline-flex items-center">
-                      <Globe size={14} className="absolute left-2.5 text-slate-500 pointer-events-none" />
+                      <Globe
+                        size={14}
+                        className="absolute left-2.5 text-slate-500 pointer-events-none"
+                      />
                       <select
                         value={privacy}
                         onChange={(e) =>
-                          setPrivacy(e.target.value as "public" | "private" | "friends")
+                          setPrivacy(
+                            e.target.value as "public" | "private" | "friends",
+                          )
                         }
                         disabled={loading}
                         className="appearance-none pl-8 pr-8 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-[12px] font-bold text-slate-600 transition-colors outline-none disabled:opacity-60"
@@ -160,7 +182,10 @@ const PostCreator = ({ username, onPostCreated }: PostCreatorProps) => {
                         <option value="friends">Ban be</option>
                         <option value="private">Rieng tu</option>
                       </select>
-                      <ChevronDown size={14} className="absolute right-2 text-slate-500 pointer-events-none" />
+                      <ChevronDown
+                        size={14}
+                        className="absolute right-2 text-slate-500 pointer-events-none"
+                      />
                     </label>
                   </div>
                 </div>
@@ -179,11 +204,19 @@ const PostCreator = ({ username, onPostCreated }: PostCreatorProps) => {
                     <div className="flex items-center justify-between w-full bg-white p-3 rounded-xl shadow-sm border border-slate-100">
                       <div className="flex items-center gap-3 overflow-hidden">
                         {isVideoFile(file) ? (
-                          <Video className="text-blue-500 flex-shrink-0" size={20} />
+                          <Video
+                            className="text-blue-500 flex-shrink-0"
+                            size={20}
+                          />
                         ) : (
-                          <ImageIcon className="text-blue-500 flex-shrink-0" size={20} />
+                          <ImageIcon
+                            className="text-blue-500 flex-shrink-0"
+                            size={20}
+                          />
                         )}
-                        <span className="text-sm font-semibold text-slate-700 truncate">{file.name}</span>
+                        <span className="text-sm font-semibold text-slate-700 truncate">
+                          {file.name}
+                        </span>
                       </div>
                       <button
                         type="button"
@@ -203,8 +236,12 @@ const PostCreator = ({ username, onPostCreated }: PostCreatorProps) => {
                       <div className="p-3 bg-white rounded-2xl shadow-sm mb-2 group-hover:scale-110 transition-transform">
                         <Video size={24} className="text-slate-400" />
                       </div>
-                      <p className="text-sm font-bold text-slate-500 mb-1">Them anh hoac video vao bai viet</p>
-                      <p className="text-[11px] text-slate-400">Ho tro image va video toi da 100MB</p>
+                      <p className="text-sm font-bold text-slate-500 mb-1">
+                        Them anh hoac video vao bai viet
+                      </p>
+                      <p className="text-[11px] text-slate-400">
+                        Ho tro image va video toi da 100MB
+                      </p>
                       <input
                         type="file"
                         ref={fileInputRef}
@@ -242,7 +279,9 @@ const PostCreator = ({ username, onPostCreated }: PostCreatorProps) => {
       )}
 
       {success && <AlertSuccess message="Them bai viet thanh cong!" />}
-      {error && <AlertError messages={["Them bai viet that bai, vui long thu lai!"]} />}
+      {error && (
+        <AlertError messages={["Them bai viet that bai, vui long thu lai!"]} />
+      )}
     </>
   );
 };

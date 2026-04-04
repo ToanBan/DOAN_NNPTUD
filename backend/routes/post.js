@@ -15,6 +15,7 @@ const {
 	adminDeletePost,
 	restorePost,
 	getHiddenPosts,
+	getForumPosts,
 } = require("../controllers/post");
 
 const router = express.Router();
@@ -32,5 +33,5 @@ router.put("/:postId/hide", verifyAccessToken,verifyAdmin, hidePost);
 router.put("/:postId/delete", verifyAccessToken, verifyAdmin, adminDeletePost);
 router.put("/:postId/restore", verifyAccessToken, verifyAdmin, restorePost);
 router.delete("/:postId", verifyAccessToken, deletePost);
-
+router.get("/forum/:forumId", verifyAccessToken, getForumPosts);
 module.exports = router;

@@ -16,7 +16,8 @@ import {
 import getForumDetail from "../api/forum/getForumDetail";
 import handleJoinForum from "../api/forum/handleJoinForum";
 import handleLeaveForum from "../api/forum/handleLeaveForum";
-
+import getPostsForum from "../api/post/getPostsForum";
+import ListPost from "../components/ListPost";
 const ForumDetail = () => {
   const { id } = useParams();
   const { user } = useUser();
@@ -24,7 +25,6 @@ const ForumDetail = () => {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
 
-  // State tự chế để hiển thị thông báo thay cho toast
   const [alert, setAlert] = useState<{
     type: "success" | "error";
     msg: string;
@@ -46,7 +46,6 @@ const ForumDetail = () => {
     fetchForumData();
   }, [id]);
 
-  // Tự động ẩn thông báo sau 3 giây
   useEffect(() => {
     if (alert) {
       const timer = setTimeout(() => setAlert(null), 3000);
@@ -110,7 +109,6 @@ const ForumDetail = () => {
 
   return (
     <div className="min-h-screen bg-[#FDFDFF] text-slate-900 font-sans pb-20">
-      {/* --- FLOATING NOTIFICATION (Thay thế Toast) --- */}
       {alert && (
         <div
           className={`fixed top-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-6 py-3 rounded-2xl shadow-2xl border animate-in fade-in slide-in-from-top-4 duration-300 ${
@@ -128,7 +126,6 @@ const ForumDetail = () => {
         </div>
       )}
 
-      {/* --- HEADER SECTION --- */}
       <div className="relative h-64 md:h-80 w-full bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 overflow-hidden">
         <div className="absolute top-[-10%] left-[-5%] w-72 h-72 bg-white/10 rounded-full blur-3xl"></div>
 
@@ -193,10 +190,7 @@ const ForumDetail = () => {
           <div className="lg:col-span-8 space-y-8">
             {forumInfo?.membership || forumInfo?.isOwner ? (
               <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
-                <PostCreator
-                  username={user?.username || "Thành viên"}
-                  onPostCreated={() => {}}
-                />
+                <ListPost forumId={id} />
               </div>
             ) : (
               <div className="bg-indigo-50/50 p-8 rounded-[2rem] border border-dashed border-indigo-200 text-center">
@@ -205,22 +199,6 @@ const ForumDetail = () => {
                 </p>
               </div>
             )}
-
-            <div className="flex items-center justify-between px-2">
-              <h2 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em]">
-                Bảng tin thảo luận
-              </h2>
-              <div className="h-[1px] flex-1 bg-slate-100 ml-6"></div>
-            </div>
-
-            <div className="bg-white p-20 rounded-[3rem] text-center border border-slate-100 shadow-sm">
-              <div className="w-16 h-16 bg-slate-50 text-slate-300 rounded-2xl mb-4 mx-auto flex items-center justify-center font-bold italic border border-slate-100">
-                {getInitials(forumInfo?.name)}
-              </div>
-              <p className="text-slate-400 font-medium">
-                Hiện chưa có bài viết nào được đăng tải.
-              </p>
-            </div>
           </div>
 
           <aside className="lg:col-span-4 space-y-6">
