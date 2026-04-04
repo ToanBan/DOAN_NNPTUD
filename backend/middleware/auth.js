@@ -69,4 +69,11 @@ const verifyRefreshToken = async (req, res, next) => {
   }
 };
 
-module.exports = { verifyAccessToken, verifyRefreshToken };
+const verifyAdmin = (req, res, next) => {
+  if (!req.user || req.user.role.name !== "admin") {
+    return res.status(403).json({ message: "Admin access required" });
+  }
+  next();
+};
+
+module.exports = { verifyAccessToken, verifyRefreshToken, verifyAdmin };

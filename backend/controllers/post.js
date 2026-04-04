@@ -292,7 +292,6 @@ const getPosts = async (req, res, next) => {
     const posts = await Post.find({
       isDeleted: false,
       isHidden: false,
-      privacy: "public",
       $or: [
         { privacy: "public" },
         { user: req.user._id },

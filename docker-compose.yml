@@ -6,25 +6,28 @@ services:
     container_name: mongo1
     ports:
       - "27017:27017"
+    command: ["--replSet", "rs0", "--bind_ip_all"]
 
   mongo2:
     image: mongo:6
     container_name: mongo2
     ports:
       - "27018:27017"
+    command: ["--replSet", "rs0", "--bind_ip_all"]
 
   mongo3:
     image: mongo:6
     container_name: mongo3
     ports:
       - "27019:27017"
+    command: ["--replSet", "rs0", "--bind_ip_all"]
 
   minio:
     image: minio/minio
     container_name: minio
     ports:
-      - "9000:9000"   # API
-      - "9001:9001"   # UI
+      - "9000:9000"
+      - "9001:9001"
     environment:
       MINIO_ROOT_USER: admin
       MINIO_ROOT_PASSWORD: 12345678
