@@ -8,6 +8,7 @@ const Comment = require("../schemas/comment");
 const Like = require("../schemas/like");
 const Notification = require("../schemas/notification");
 const Follow = require("../schemas/follow");
+const Forum = require("../schemas/forum");
 const socketUtil = require("../utils/socket");
 
 const uploadDir = path.join(__dirname, "../public/uploads/posts");
@@ -64,9 +65,7 @@ const emitCommentToPostRoom = (postId, comment) => {
       postId: String(postId),
       comment,
     });
-  } catch (_error) {
-    // Keep the main request successful even if websocket delivery fails.
-  }
+  } catch (_error) {}
 };
 
 const getEngagementData = async (posts, currentUserId) => {
@@ -234,19 +233,17 @@ const createPost = async (req, res, next) => {
 
     const content =
       typeof req.body.content === "string" ? req.body.content.trim() : "";
-
     const privacy =
       typeof req.body.privacy === "string" ? req.body.privacy : "public";
-
     const forum = typeof req.body.forum === "string" ? req.body.forum : null;
 
     if (!ALLOWED_PRIVACY.has(privacy)) {
       return res.status(400).json({ message: "Invalid privacy" });
     }
 
-    const files = req.files || (req.file ? [req.file] : []);
+    const file = req.file;
 
-    if (!content && files.length === 0) {
+    if (!content && !file) {
       return res.status(400).json({
         message: "Post content or file is required",
       });
@@ -258,7 +255,7 @@ const createPost = async (req, res, next) => {
           user: req.user._id,
           content,
           privacy,
-          fileCount: files.length,
+          fileCount: file ? 1 : 0,
           sharedPost: null,
           forum: forum || null,
         },
@@ -266,18 +263,18 @@ const createPost = async (req, res, next) => {
       { session },
     );
 
-    let postFiles = [];
+    let createdFileDoc = null;
 
-    if (files.length > 0) {
-      const fileDocs = files.map((file) => ({
+    if (file) {
+      const fileDoc = {
         post: newPost._id,
         fileUrl: `uploads/posts/${file.filename}`,
         fileType: getFileType(file.mimetype),
         fileName: file.originalname,
         fileSize: file.size,
-      }));
+      };
 
-      postFiles = await PostFile.insertMany(fileDocs, { session });
+      [createdFileDoc] = await PostFile.create([fileDoc], { session });
     }
 
     await session.commitTransaction();
@@ -288,8 +285,8 @@ const createPost = async (req, res, next) => {
       .lean();
 
     const fileMap = new Map();
-    if (postFiles.length > 0) {
-      fileMap.set(String(newPost._id), postFiles[0]);
+    if (createdFileDoc) {
+      fileMap.set(String(newPost._id), createdFileDoc);
     }
 
     const engagementData = await getEngagementData(
@@ -310,17 +307,14 @@ const createPost = async (req, res, next) => {
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-    const files = req.files || (req.file ? [req.file] : []);
-    files.forEach((file) => {
-      if (file?.path) {
-        fs.unlink(file.path, () => {});
-      }
-    });
+
+    if (req.file?.path) {
+      fs.unlink(req.file.path, () => {});
+    }
 
     next(error);
   }
 };
-
 const getPosts = async (req, res, next) => {
   try {
     const friendIds = await getFriendIds(req.user._id);
@@ -368,9 +362,11 @@ const getPosts = async (req, res, next) => {
 
 const getMyPosts = async (req, res, next) => {
   try {
+    const targetUserId = req.query.userId || req.user._id;
+
     const posts = await Post.find({
       isDeleted: false,
-      user: req.user._id,
+      user: targetUserId,
     })
       .populate("user", "username avatarUrl")
       .populate({
@@ -385,10 +381,11 @@ const getMyPosts = async (req, res, next) => {
       .lean();
 
     const postFileMap = await getPostFileMap(posts);
+
     const engagementData = await getEngagementData(posts, req.user._id);
 
     return res.json({
-      message: "Get my posts success",
+      message: "Get posts success",
       posts: posts.map((post) =>
         mapPostToResponse(
           post,
@@ -941,7 +938,6 @@ const restorePost = async (req, res, next) => {
   }
 };
 
-// Get hidden/deleted posts (admin only)
 const getHiddenPosts = async (req, res, next) => {
   try {
     const { page = 1, limit = 10 } = req.query;
@@ -1020,8 +1016,6 @@ const getForumPosts = async (req, res, next) => {
     next(error);
   }
 };
-
-
 
 module.exports = {
   uploadPostFile,

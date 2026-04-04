@@ -16,7 +16,6 @@ import PostCreator from "./PostCreator";
 import ReportModal from "./ReportModal";
 import api from "../lib/axios";
 import { API_URL } from "../lib/config";
-import getPostsForum from "../api/post/getPostsForum";
 interface CommentItem {
   commentId: string;
   content: string;
@@ -100,10 +99,8 @@ const ListPost = ({ forumId }: { forumId?: string }) => {
         let res;
 
         if (forumId) {
-          // ✅ gọi API forum
-         res = await api.get("/api/posts");
+         res = await api.get(`/api/posts/forum/${forumId}`);
         } else {
-          // ✅ gọi API bình thường
           res = await api.get("/api/posts");
         }
 
@@ -554,6 +551,7 @@ const ListPost = ({ forumId }: { forumId?: string }) => {
     <div ref={scrollRef} className="space-y-6 max-w-2xl mx-auto p-4">
       <PostCreator
         username={user?.username || "Me"}
+        forumId={forumId}
         onPostCreated={addNewPost}
       />
 

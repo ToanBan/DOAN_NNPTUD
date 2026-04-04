@@ -1,6 +1,5 @@
 import { useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
-import PostCreator from "../components/PostCreator";
 import { useUser } from "../context/authContext";
 import {
   Users,
@@ -16,7 +15,6 @@ import {
 import getForumDetail from "../api/forum/getForumDetail";
 import handleJoinForum from "../api/forum/handleJoinForum";
 import handleLeaveForum from "../api/forum/handleLeaveForum";
-import getPostsForum from "../api/post/getPostsForum";
 import ListPost from "../components/ListPost";
 const ForumDetail = () => {
   const { id } = useParams();

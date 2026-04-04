@@ -5,19 +5,28 @@ const handleEditProfile = async (
   description: string,
   address: string,
   username: string,
+  avatarFile?: File | null // Thêm tham số này
 ) => {
   try {
-    const res = await api.post("/api/auth/editprofile", {
-      phone,
-      description,
-      address,
-      username,
+    const formData = new FormData();
+    formData.append("phone", phone);
+    formData.append("description", description);
+    formData.append("address", address);
+    formData.append("username", username);
+    
+    if (avatarFile) {
+      formData.append("avatar", avatarFile); 
+    }
+
+    const res = await api.post("/api/auth/editprofile", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
     });
 
-    console.log(res.data);
     return res.data;
   } catch (error: any) {
-    console.error(error.response.data.message);
+    console.error(error.response?.data?.message);
     return null;
   }
 };

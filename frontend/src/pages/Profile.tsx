@@ -33,11 +33,13 @@ const Profile: React.FC = () => {
   const [stats, setStats] = useState({ followers: 0, following: 0, posts: 0 });
   const [relationshipAction, setRelationshipAction] = useState<string>("Self");
   const [loading, setLoading] = useState<boolean>(true);
-
+  console.log("Profile component rendered with user:", id);
   useEffect(() => {
     const fetchMyPosts = async () => {
       try {
-        const res = await api.get("/api/posts/me");
+        const res = await api.get("/api/posts/me", {
+          params: id ? { userId: id } : {}
+        });
         setPosts(res.data.posts || []);
       } catch (_error) {
         setPosts([]);

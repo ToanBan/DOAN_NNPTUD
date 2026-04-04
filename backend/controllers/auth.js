@@ -377,60 +377,66 @@ const googleCallback = async (req, res) => {
 
 const editProfile = async (req, res, next) => {
   try {
-    const user = req.user;
+    const user = req.user; // Lấy từ middleware verifyAccessToken
     const { phone, description, address, username } = req.body;
 
     const updateData = {};
 
+    // 1. Xử lý số điện thoại
     if (phone) {
       const cleanPhone = phone.trim().replace(/\s+/g, "");
       const isValidPhone = /^(0|\+84)[0-9]{9}$/.test(cleanPhone);
-
       if (!isValidPhone) {
-        return res.status(400).json({ message: "Invalid phone number" });
+        if (req.file) fs.unlink(req.file.path, () => {}); // Xóa file vừa upload nếu lỗi
+        return res.status(400).json({ message: "Số điện thoại không hợp lệ" });
       }
-
       updateData.phone = cleanPhone;
     }
 
-    if (description) {
+    // 2. Xử lý tiểu sử
+    if (description !== undefined) {
       if (description.length > 500) {
-        return res.status(400).json({
-          message: "Description too long (max 500 chars)",
-        });
+        if (req.file) fs.unlink(req.file.path, () => {});
+        return res.status(400).json({ message: "Mô tả quá dài (tối đa 500 ký tự)" });
       }
       updateData.description = description.trim();
     }
 
-    if (address) {
+    // 3. Xử lý địa chỉ
+    if (address !== undefined) {
       updateData.address = address.trim();
     }
 
+    // 4. Xử lý username (Kiểm tra trùng)
     if (username) {
       const trimmedUsername = username.trim();
-
       const existingUser = await User.findOne({
         username: trimmedUsername,
         _id: { $ne: user._id },
       });
 
       if (existingUser) {
-        return res.status(400).json({
-          message: "Username already exists",
-        });
+        if (req.file) fs.unlink(req.file.path, () => {});
+        return res.status(400).json({ message: "Tên người dùng đã tồn tại" });
       }
-
       updateData.username = trimmedUsername;
     }
 
-    // if (req.file) {
-    //   updateData.avatar = req.file.filename;
-    // }
+    if (req.file) {
+      const currentUser = await User.findById(user._id);
+      if (currentUser.avatarUrl && currentUser.avatarUrl.includes("uploads/avatars/")) {
+        const oldPath = path.join(__dirname, "..", "public", currentUser.avatarUrl);
+        if (fs.existsSync(oldPath)) {
+          fs.unlink(oldPath, (err) => {
+            if (err) console.error("Lỗi xóa ảnh cũ:", err);
+          });
+        }
+      }
+      updateData.avatarUrl = `uploads/avatars/${req.file.filename}`;
+    }
 
     if (Object.keys(updateData).length === 0) {
-      return res.status(400).json({
-        message: "No data to update",
-      });
+      return res.status(400).json({ message: "Không có dữ liệu nào được thay đổi" });
     }
 
     const updatedUser = await User.findByIdAndUpdate(user._id, updateData, {
@@ -439,7 +445,7 @@ const editProfile = async (req, res, next) => {
 
     return res.json({
       success: true,
-      message: "Update profile success",
+      message: "Cập nhật thông tin thành công",
       user: {
         _id: updatedUser._id,
         username: updatedUser.username,
@@ -447,10 +453,12 @@ const editProfile = async (req, res, next) => {
         phone: updatedUser.phone,
         description: updatedUser.description,
         address: updatedUser.address,
-        role: updatedUser.role.name,
+        avatarUrl: updatedUser.avatarUrl, 
+        role: updatedUser.role?.name || "User",
       },
     });
   } catch (error) {
+    if (req.file) fs.unlink(req.file.path, () => {}); 
     next(error);
   }
 };

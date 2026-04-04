@@ -37,7 +37,6 @@ const GetMessagesByUserId = async (req, res) => {
       });
     });
 
-    // ✅ merge
     const result = messages.map((msg) => ({
       ...msg,
       files: fileMap.get(String(msg._id)) || [],

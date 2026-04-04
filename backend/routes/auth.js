@@ -15,7 +15,8 @@ let {
   changePassword
 } = require("../controllers/auth");
 let passport = require("passport");
-let { verifyAccessToken, verifyRefreshToken } = require("../middleware/auth");
+let { verifyAccessToken, verifyRefreshToken} = require("../middleware/auth");
+const uploadFile = require("../middleware/upload");
 const {
   RegisterValidator,
   handleValidationErrors,
@@ -30,8 +31,8 @@ router.post("/logout", verifyAccessToken, logout);
 router.post("/forgotpassword", forgotPassword);
 router.post("/resetpassword", resetPassword);
 router.post("/verifyotp", verifyOtp);
-router.post("/editprofile", verifyAccessToken, editProfile)
-router.post("/changepassword", verifyAccessToken, changePassword)
+router.post("/editprofile", verifyAccessToken, uploadFile("avatar").single("avatar"), editProfile);
+router.post("/changepassword", verifyAccessToken, changePassword);
 router.get(
   "/google",
   passport.authenticate("google", { scope: ["profile", "email"] }),

@@ -4,14 +4,12 @@ const Forum = require('../schemas/forum');
 const Notification = require('../schemas/notification');
 const PostFile = require('../schemas/post_file');
 
-// ================= DASHBOARD =================
 exports.getDashboardStats = async (req, res, next) => {
   try {
     const totalUsers = await User.countDocuments({ isDeleted: false });
     const totalPosts = await Post.countDocuments({ isDeleted: false });
     const totalForums = await Forum.countDocuments({ isDeleted: false });
 
-    // ❌ Bỏ aggregate -> ✅ dùng find + loop
     const posts = await Post.find({ isDeleted: false })
       .select("likeCount commentCount shareCount")
       .lean();
@@ -55,14 +53,13 @@ exports.getDashboardStats = async (req, res, next) => {
   }
 };
 
-// ================= USERS =================
 exports.getUsersList = async (req, res, next) => {
   try {
     const users = await User.find({ isDeleted: false })
       .populate("role")
       .lean();
 
-    // ❌ Bỏ aggregate -> ✅ lấy post rồi đếm
+
     const posts = await Post.find({ isDeleted: false })
       .select("user")
       .lean();
@@ -123,7 +120,6 @@ exports.getUsersList = async (req, res, next) => {
   }
 };
 
-// ================= TOGGLE USER =================
 exports.toggleUserStatus = async (req, res, next) => {
   try {
     const { userId } = req.params;
@@ -148,7 +144,6 @@ exports.toggleUserStatus = async (req, res, next) => {
   }
 };
 
-// ================= POSTS =================
 exports.getPostsList = async (req, res, next) => {
   try {
     const posts = await Post.find({ isDeleted: false })

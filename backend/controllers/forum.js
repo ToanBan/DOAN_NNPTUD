@@ -41,7 +41,7 @@ const getForums = async (req, res, next) => {
 
 const getMyForums = async (req, res, next) => {
   try {
-    const userId = req.user.id;
+    const userId = req.query.userId || req.user.id;
 
     const memberships = await ForumMember.find({
       user: userId,
@@ -50,7 +50,6 @@ const getMyForums = async (req, res, next) => {
 
     const forumIds = memberships.map((m) => m.forum);
 
-    // 2. Lấy forum + createdBy
     const forums = await Forum.find({
       _id: { $in: forumIds },
       isDeleted: false,
@@ -58,7 +57,6 @@ const getMyForums = async (req, res, next) => {
       .populate("createdBy", "username avatarUrl")
       .lean();
 
-    // 3. Đếm member (1 query)
     const members = await ForumMember.find({
       forum: { $in: forumIds },
       status: "active",
@@ -70,7 +68,6 @@ const getMyForums = async (req, res, next) => {
       return acc;
     }, {});
 
-    // 4. format
     const result = forums.map((forum) => ({
       forumId: forum._id,
       name: forum.name,
@@ -90,16 +87,46 @@ const getMyForums = async (req, res, next) => {
   }
 };
 
+const getMyCreatedForums = async (req, res, next) => {
+  try {
+    const userId = req.query.userId || req.user.id;
+
+    const forums = await Forum.find({
+      createdBy: userId,
+      isDeleted: false,
+    })
+      .populate("createdBy", "username avatarUrl")
+      .lean();
+
+    const result = forums.map((forum) => ({
+      forumId: forum._id,
+      name: forum.name,
+      description: forum.description,
+      createdBy: {
+        userId: forum.createdBy?._id,
+        username: forum.createdBy?.username || "Unknown",
+        avatar: forum.createdBy?.avatarUrl || "",
+      },
+      createdAt: forum.createdAt,
+    }));
+
+    res.json({ message: "Get my created forums success", forums: result });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getForumById = async (req, res, next) => {
   try {
     const { forumId } = req.params;
+
 
     const forum = await Forum.findOne({ _id: forumId, isDeleted: false })
       .populate("createdBy", "username avatarUrl")
       .lean();
 
     if (!forum) {
-      return res.status(404).json({ message: "Forum not found" });
+      return res.status(404).json({ message: "Diễn đàn không tồn tại" });
     }
 
     const memberCount = await ForumMember.countDocuments({
@@ -107,13 +134,14 @@ const getForumById = async (req, res, next) => {
       status: "active",
     });
 
+    // Kiểm tra xem người dùng hiện tại đã tham gia chưa
     const membership = await ForumMember.findOne({
       user: req.user._id,
       forum: forumId,
     }).lean();
 
     return res.json({
-      message: "Get forum success",
+      message: "Lấy thông tin diễn đàn thành công",
       forum: {
         forumId: forum._id,
         name: forum.name,
@@ -132,7 +160,7 @@ const getForumById = async (req, res, next) => {
       },
     });
   } catch (error) {
-    next(error);
+    next(error); // Express sẽ bắt lỗi CastError ở đây nếu ID sai định dạng
   }
 };
 
@@ -322,8 +350,6 @@ const leaveForum = async (req, res, next) => {
   }
 };
 
-
-
 module.exports = {
   getForums,
   getForumById,
@@ -333,4 +359,5 @@ module.exports = {
   joinForum,
   leaveForum,
   getMyForums,
+  getMyCreatedForums,
 };
