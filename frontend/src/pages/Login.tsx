@@ -13,6 +13,7 @@ import AlertSuccess from "../components/AlertSuccess";
 import AlertError from "../components/AlertError";
 import { FcGoogle } from "react-icons/fc";
 import { useUser } from "../context/authContext";
+import { API_URL } from "../lib/config";
 const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -243,7 +244,7 @@ const Login: React.FC = () => {
             <div className="mt-6">
               <button
                 onClick={() => {
-                  window.location.href = `${import.meta.env.VITE_API_URL}/api/auth/google`;
+                  window.location.href = `${API_URL}/api/auth/google`;
                 }}
                 className="w-full flex items-center justify-center gap-3 py-3 border border-slate-200 rounded-2xl hover:bg-slate-50 transition-all font-bold text-slate-700 text-sm"
               >

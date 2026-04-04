@@ -1,6 +1,8 @@
+import { API_URL } from "../../lib/config";
+
 const handleLogin = async (email: string, password: string) => {
   try {
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/login`, {
+    const res = await fetch(`${API_URL}/api/auth/login`, {
       method: "POST",
       body: JSON.stringify({ email, password }),
       headers: {

@@ -242,6 +242,7 @@ exports.getNotifications = async (req, res) => {
   try {
     const notifications = await Notification.find({ receiver: req.user._id })
       .populate('sender', 'username fullName avatarUrl')
+      .populate('post', 'content')
       .sort({ createdAt: -1 })
       .limit(20);
 

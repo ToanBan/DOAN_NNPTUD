@@ -35,6 +35,7 @@ mongoose.connect(
   process.env.MONGO_URI || "mongodb://127.0.0.1:27017/DOAN_NNPTUD"
 );
 
+
 mongoose.connection.on('connected', async function () {
   console.log("MongoDB connected");
 
