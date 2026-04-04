@@ -787,7 +787,7 @@ const hidePost = async (req, res, next) => {
 };
 
 // Soft delete post (admin)
-const deletePost = async (req, res, next) => {
+const adminDeletePost = async (req, res, next) => {
   try {
     const { postId } = req.params;
     const { reason } = req.body;
@@ -911,7 +911,7 @@ module.exports = {
   getMyPosts,
   sharePost,
   hidePost,
-  deletePost,
+  adminDeletePost,
   restorePost,
   getHiddenPosts,
   toggleLikePost,
