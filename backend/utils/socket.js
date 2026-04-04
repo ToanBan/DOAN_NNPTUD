@@ -36,7 +36,6 @@ module.exports = {
             files = [],
           } = data;
 
-          // ✅ tạo message
           const [newMessage] = await ChatMessage.create(
             [
               {
@@ -48,7 +47,6 @@ module.exports = {
             { session }
           );
 
-          // ✅ lưu file nếu có
           let messageFiles = [];
 
           if (files && files.length > 0) {
