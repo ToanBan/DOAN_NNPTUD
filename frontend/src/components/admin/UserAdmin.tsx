@@ -14,6 +14,7 @@ import {
   ArrowDownRight,
   ExternalLink,
 } from "lucide-react";
+import api from "../../lib/axios";
 
 // --- Types & Interfaces ---
 interface StatCardProps {
@@ -75,9 +76,27 @@ const UserAdmin: React.FC = () => {
     usersNoPosts: 0,
   });
  
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await api.get('/api/admin/users');
+        setUsers(response.data.users);
+        setStats(response.data.stats);
+      } catch (error) {
+        console.error(error);
+      }
+    };
+    fetchUsers();
+  }, []);
 
- 
-
+  const handleToggleStatus = async (userId: string) => {
+    try {
+      const response = await api.patch(`/api/admin/users/${userId}/toggle-status`);
+      setUsers(users.map(u => u.id === userId ? { ...u, status: response.data.status } : u));
+    } catch (error) {
+      console.error(error);
+    }
+  };
   const statsData: StatCardProps[] = [
     {
       title: "Người dùng",
@@ -108,7 +127,6 @@ const UserAdmin: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex font-sans text-slate-900 w-full overflow-x-hidden">
-      {/* Main Content - Chiếm toàn bộ không gian còn lại */}
       <main className="flex-1 min-w-0 flex flex-col bg-slate-50">
         {/* Header */}
         <header className="bg-white border-b border-slate-200 sticky top-0 z-30 w-full">
@@ -312,8 +330,9 @@ const UserAdmin: React.FC = () => {
                             <Edit2 size={18} />
                           </button>
                           <button
-                            title="Vô hiệu hóa"
-                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                            title={user.status === 'active' ? "Vô hiệu hóa" : "Mở khóa"}
+                            onClick={() => handleToggleStatus(user.id)}
+                            className={`p-2 rounded-lg transition-all ${user.status === 'active' ? 'text-slate-400 hover:text-rose-600 hover:bg-rose-50' : 'text-rose-500 hover:text-emerald-600 hover:bg-emerald-50'}`}
                           >
                             <Trash2 size={18} />
                           </button>

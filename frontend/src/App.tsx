@@ -9,6 +9,7 @@ import VerifyOTP from "./pages/VerifyOTP";
 import Search from "./pages/Search";
 import Admin from "./pages/Admin";
 import ForumDetail from "./pages/ForumDetail";
+import ProtectedRoute from "./components/ProtectedRoute";
 function App() {
   return (
     <Router>
@@ -22,7 +23,11 @@ function App() {
         <Route path="/forgot-password" element={<Forgot/>}/>
         <Route path="/reset-password" element={<ResetPassword/>}/>
         <Route path="/verify-otp" element={<VerifyOTP/>}/>
-        <Route path="/admin" element={<Admin/>}/>
+        <Route path="/admin" element={
+          <ProtectedRoute>
+            <Admin/>
+          </ProtectedRoute>
+        }/>
         <Route path="/forum/:id" element={<ForumDetail/>}/>
       </Routes>
     </Router>

@@ -1,5 +1,5 @@
 const express = require("express");
-const { verifyAccessToken } = require("../middleware/auth");
+const { verifyAccessToken , verifyAdmin} = require("../middleware/auth");
 const {
   createReport,
   getReports,
@@ -9,16 +9,12 @@ const {
 
 const router = express.Router();
 
-// Create report (user)
 router.post("/", verifyAccessToken, createReport);
 
-// Get all reports (admin only)
-router.get("/", verifyAccessToken, getReports);
+router.get("/", verifyAccessToken, verifyAdmin, getReports);
 
-// Get report statistics (admin only)
-router.get("/stats", verifyAccessToken, getReportStats);
+router.get("/stats", verifyAccessToken, verifyAdmin,getReportStats);
 
-// Update report status (admin only)
-router.put("/:reportId", verifyAccessToken, updateReportStatus);
+router.put("/:reportId", verifyAccessToken, verifyAdmin, updateReportStatus);
 
 module.exports = router;

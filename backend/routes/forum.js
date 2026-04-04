@@ -1,5 +1,5 @@
 const express = require("express");
-const { verifyAccessToken } = require("../middleware/auth");
+const { verifyAccessToken, verifyAdmin} = require("../middleware/auth");
 const {
   getForums,
   getForumById,
@@ -18,7 +18,7 @@ const {
 
 const router = express.Router();
 
-router.get("/", verifyAccessToken, getForums);
+router.get("/", verifyAccessToken,verifyAdmin, getForums);
 router.post("/", verifyAccessToken, createForum);
 router.get("/my-forums", verifyAccessToken, getMyForums);
 

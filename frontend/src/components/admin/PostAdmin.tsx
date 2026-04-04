@@ -11,6 +11,8 @@ import {
   MoreHorizontal,
   Clock,
 } from "lucide-react";
+import api from "../../lib/axios";
+import { useEffect } from "react";
 
 
 interface StatCardProps {
@@ -82,7 +84,17 @@ const PostAdmin = ({ contextstats }: { contextstats: Stats | null }) => {
     return /\.(mp4|webm|mov|mkv)$/i.test(url);
   };
 
- 
+  useEffect(() => {
+    const fetchPosts = async () => {
+      try {
+        const response = await api.get('/api/admin/posts');
+        setPosts(response.data.posts);
+      } catch (error) {
+        console.error(error);
+      }
+    };
+    fetchPosts();
+  }, []);
 
   const statsData: StatCardProps[] = stats
     ? [
@@ -119,41 +131,58 @@ const PostAdmin = ({ contextstats }: { contextstats: Stats | null }) => {
 
 
   return (
-    <div>
-      <main className="flex-1 overflow-x-hidden">
+    <>
+      <div className="min-h-screen bg-slate-50 flex font-sans text-slate-900 w-full overflow-x-hidden">
+      {/* Main Content - Chiếm toàn bộ không gian còn lại */}
+      <main className="flex-1 min-w-0 flex flex-col bg-slate-50">
         {/* Header */}
-        <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
+        <header className="bg-white border-b border-slate-200 sticky top-0 z-30 w-full">
           <div className="flex items-center justify-between px-6 py-4">
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => setSidebarOpen(!isSidebarOpen)}
-                className="lg:hidden p-2 hover:bg-slate-100 rounded-lg text-slate-600"
+                className="p-2 hover:bg-slate-100 rounded-lg text-slate-600 transition-colors"
+                title={isSidebarOpen ? "Đóng menu" : "Mở menu"}
               >
                 <Menu size={24} />
               </button>
-
               <div className="relative hidden md:block">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                 <input
                   type="text"
-                  placeholder="Tìm bài viết..."
-                  className="pl-10 pr-4 py-2 bg-slate-100 border-none rounded-xl text-sm w-80 focus:ring-2 focus:ring-indigo-500 outline-none"
+                  placeholder="Tìm tên, email hoặc username..."
+                  className="pl-10 pr-4 py-2 bg-slate-100 border-none rounded-xl text-sm w-80 focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
                 />
               </div>
             </div>
 
             <div className="flex items-center space-x-4">
-              <button className="relative p-2 text-slate-500 hover:bg-slate-100 rounded-full">
+              <button className="relative p-2 text-slate-500 hover:bg-slate-100 rounded-full transition-colors">
                 <Bell size={20} />
+                <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
               </button>
-
-              <img
-                src="https://api.dicebear.com/7.x/avataaars/svg?seed=Admin"
-                className="w-10 h-10 rounded-full"
-              />
+              <div className="flex items-center space-x-3 pl-4 border-l border-slate-200">
+                <div className="text-right hidden sm:block">
+                  <p className="text-sm font-semibold text-slate-800">
+                    Admin User
+                  </p>
+                  <p className="text-xs text-slate-500 uppercase font-bold tracking-tighter text-indigo-600">
+                    Premium
+                  </p>
+                </div>
+                <img
+                  src="https://api.dicebear.com/7.x/avataaars/svg?seed=Admin"
+                  alt="Avatar"
+                  className="w-10 h-10 rounded-full bg-slate-200 ring-2 ring-indigo-50 shadow-sm"
+                />
+              </div>
             </div>
           </div>
         </header>
+
+          <div>
+      <main className="flex-1 overflow-x-hidden">
+   
 
         {/* Content */}
         <div className="p-6 max-w-7xl mx-auto">
@@ -253,6 +282,12 @@ const PostAdmin = ({ contextstats }: { contextstats: Stats | null }) => {
         </div>
       </main>
     </div>
+      </main>
+    </div>
+    </>
+
+
+  
   );
 };
 

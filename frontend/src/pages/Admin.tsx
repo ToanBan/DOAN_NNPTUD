@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 
 import SidebarAdmin from "../components/SidebarAdmin";
 import Dashboard from "../components/admin/Dashboard";

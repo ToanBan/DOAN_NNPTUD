@@ -33,6 +33,20 @@ app.use("/api/chatmessages", chatmessageRouter);
 app.use("/api/forums", forumRouter);
 app.use('/api/admin', adminRouter);
 app.use("/api/reports", reportRouter);
+
+app.use((req, res, next) => {
+  const err = new Error("API Not Found");
+  err.status = 404;
+  next(err);
+});
+
+app.use((err, req, res, next) => {
+  console.error(err); 
+
+  return res.status(err.status || 500).json({
+    message: err.message || "Internal Server Error",
+  });
+});
 mongoose.connect(
   process.env.MONGO_URI || "mongodb://127.0.0.1:27017/DOAN_NNPTUD"
 );
