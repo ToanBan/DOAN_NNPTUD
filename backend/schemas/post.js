@@ -27,7 +27,10 @@ const postSchema = new mongoose.Schema(
       default: null,
     },
 
-    isDeleted: { type: Boolean, default: false }
+    isDeleted: { type: Boolean, default: false },
+    isHidden: { type: Boolean, default: false },
+    hiddenReason: String,
+    hiddenBy: { type: mongoose.Schema.Types.ObjectId, ref: "user" }
   },
   { timestamps: true }
 );

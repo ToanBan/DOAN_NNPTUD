@@ -4,8 +4,9 @@ import SidebarAdmin from "../components/SidebarAdmin";
 import Dashboard from "../components/admin/Dashboard";
 import UserAdmin from "../components/admin/UserAdmin";
 import PostAdmin from "../components/admin/PostAdmin";
-import ErrorAdmin from "../components/admin/ErrorAdmin";
 import Forum from "../components/admin/Forum";
+import ReportAdmin from "../components/admin/ReportAdmin";
+import HiddenPostsAdmin from "../components/admin/HiddenPostsAdmin";
 interface Stats {
   totalUsers: number;
   totalPosts: number;
@@ -36,7 +37,10 @@ const Admin: React.FC = () => {
         return <PostAdmin contextstats={stats} />;
 
       case "reports":
-        return <ErrorAdmin />;
+        return <ReportAdmin />;
+
+      case "hidden-posts":
+        return <HiddenPostsAdmin />;
 
       default:
         return <Dashboard contextstats={stats} />;
