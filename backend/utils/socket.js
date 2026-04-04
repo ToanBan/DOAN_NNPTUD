@@ -33,8 +33,7 @@ module.exports = {
             senderId,
             receiverId,
             content,
-            fileUrl,
-            fileType,
+            files = [],
           } = data;
 
           // ✅ tạo message
@@ -50,21 +49,18 @@ module.exports = {
           );
 
           // ✅ lưu file nếu có
-          let messageFile = null;
+          let messageFiles = [];
 
-          if (fileUrl) {
-            const [createdFile] = await MessageFile.create(
-              [
-                {
-                  message: newMessage._id,
-                  fileUrl,
-                  fileType: "file",
-                },
-              ],
-              { session }
-            );
+          if (files && files.length > 0) {
+            const fileDocs = files.map((f) => ({
+              message: newMessage._id,
+              fileUrl: f.url,
+              fileType: f.type || "file",
+              fileName: f.name || "",
+              fileSize: f.size || 0,
+            }));
 
-            messageFile = createdFile;
+            messageFiles = await MessageFile.insertMany(fileDocs, { session });
           }
 
           let newNotification = null;
@@ -96,8 +92,12 @@ module.exports = {
             senderId,
             receiverId,
             content,
-            fileUrl: messageFile?.fileUrl || null,
-            fileType: messageFile?.fileType || null,
+            files: messageFiles.map((f) => ({
+              url: f.fileUrl,
+              type: f.fileType,
+              name: f.fileName,
+              size: f.fileSize,
+            })),
             createdAt: newMessage.createdAt,
           };
 

@@ -1,7 +1,6 @@
-import React, { useState, useEffect, ChangeEvent } from "react";
+import React, { useState, useEffect } from "react";
 import {
   LayoutGrid,
-  Plus,
   X,
   Menu,
   Edit2,
@@ -10,10 +9,10 @@ import {
   Loader2,
 } from "lucide-react";
 import Swal from "sweetalert2";
-import api from "../../lib/axios";
 import handleAddForum from "../../api/forum/handleAddForum";
 import handleDeleteForum from "../../api/forum/handleDeleteForum";
 import handleEditForum from "../../api/forum/handleEditForum";
+import getAllForum from "../../api/forum/getAllForum";
 interface ForumItem {
   forumId: string;
   name: string;
@@ -49,10 +48,8 @@ const Forum: React.FC = () => {
     const fetchForums = async () => {
       try {
         setIsLoading(true);
-        const res = await api.get<{ message: string; forums: ForumItem[] }>(
-          "/api/forums",
-        );
-        setForums(res.data.forums || []);
+        const res = await getAllForum();
+        setForums(res || []);
       } catch (error) {
         console.error("fetchForums error:", error);
         Swal.fire({
@@ -102,22 +99,17 @@ const Forum: React.FC = () => {
     }
   };
 
-  const handleAddNew = (): void => {
-    setSelectedForum(null);
-    setFormData({ name: "", description: "" });
-    setIsModalOpen(true);
-  };
 
-  // ── Mở modal chỉnh sửa ──
+
+
   const handleEdit = (forum: ForumItem): void => {
     setSelectedForum(forum);
     setFormData({ name: forum.name, description: forum.description });
     setIsModalOpen(true);
   };
 
-  // ── Input change ──
   const handleInputChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ): void => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -244,12 +236,6 @@ const Forum: React.FC = () => {
                   {forums.length} diễn đàn đang hoạt động
                 </p>
               </div>
-              <button
-                onClick={handleAddNew}
-                className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-md active:scale-95 transition-all"
-              >
-                <Plus size={18} /> Thêm diễn đàn
-              </button>
             </div>
 
             {/* Table Area */}
