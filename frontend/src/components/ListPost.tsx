@@ -1,14 +1,24 @@
 import { useEffect, useRef, useState } from "react";
-import { Compass, Heart, MessageSquare, Pencil, Send, Share2, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  Compass,
+  Globe,
+  Heart,
+  MessageSquare,
+  MoreVertical,
+  Pencil,
+  Send,
+  Share2,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useUser } from "../context/authContext";
-import { Heart, MessageSquare, Share2, Compass, X, Globe, ChevronDown, MoreVertical } from "lucide-react";
 import { useSocket } from "../context/socketContext";
 import PostCreator from "./PostCreator";
 import AlertSuccess from "./AlertSuccess";
 import AlertError from "./AlertError";
 import ReportModal from "./ReportModal";
 import api from "../lib/axios";
-import { API_URL } from "../lib/config";
 
 interface CommentItem {
   commentId: string;
@@ -66,7 +76,7 @@ const isVideoFile = (fileType?: string | null, url?: string) => {
 const ListPost = () => {
   const [posts, setPosts] = useState<PostItem[]>([]);
   const [sharingPostId, setSharingPostId] = useState<string | null>(null);
-  const [shareModalPost, setShareModalPost] = useState<any | null>(null);
+  const [shareModalPost, setShareModalPost] = useState<PostItem | null>(null);
   const [shareCaption, setShareCaption] = useState("");
   const [isSubmittingShare, setIsSubmittingShare] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(false);
@@ -80,6 +90,7 @@ const ListPost = () => {
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
   const [replyingTo, setReplyingTo] = useState<Record<string, boolean>>({});
   const [submittingCommentId, setSubmittingCommentId] = useState<string | null>(null);
+
   const { user } = useUser();
   const { socket } = useSocket();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -88,7 +99,7 @@ const ListPost = () => {
     const fetchPosts = async () => {
       try {
         const res = await api.get("/api/posts");
-        setPosts(res.data.posts || []);
+        setPosts(res.data?.posts || []);
       } catch (_error) {
         setPosts([]);
       }
@@ -96,6 +107,10 @@ const ListPost = () => {
 
     fetchPosts();
   }, []);
+
+  const updatePostById = (postId: string, updater: (post: PostItem) => PostItem) => {
+    setPosts((prev) => prev.map((post) => (post.postId === postId ? updater(post) : post)));
+  };
 
   useEffect(() => {
     if (!socket || !posts.length) {
@@ -152,7 +167,12 @@ const ListPost = () => {
       return url;
     }
 
-    return `${API_URL}/${url}`;
+    const apiUrl = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
+    if (!apiUrl) {
+      return url;
+    }
+
+    return `${apiUrl}/${url.replace(/^\/+/, "")}`;
   };
 
   const formatTimeAgo = (value?: string) => {
@@ -177,8 +197,22 @@ const ListPost = () => {
     return date.toLocaleDateString("vi-VN");
   };
 
-  const updatePostById = (postId: string, updater: (post: PostItem) => PostItem) => {
-    setPosts((prev) => prev.map((post) => (post.postId === postId ? updater(post) : post)));
+  const openShareModal = (post: PostItem) => {
+    setShareModalPost(post);
+  };
+
+  const closeShareModal = () => {
+    if (isSubmittingShare) {
+      return;
+    }
+
+    setShareModalPost(null);
+    setShareCaption("");
+  };
+
+  const openReportModal = (postId: string) => {
+    setReportingPostId(postId);
+    setShowReportModal(true);
   };
 
   const handleToggleLike = async (postId: string) => {
@@ -192,10 +226,7 @@ const ListPost = () => {
     }
 
     const nextLiked = !currentPost.likedByCurrentUser;
-    const nextLikeCount = Math.max(
-      (currentPost.likeCount || 0) + (nextLiked ? 1 : -1),
-      0
-    );
+    const nextLikeCount = Math.max((currentPost.likeCount || 0) + (nextLiked ? 1 : -1), 0);
 
     updatePostById(postId, (post) => ({
       ...post,
@@ -240,7 +271,7 @@ const ListPost = () => {
           commentCount: res.data?.comments?.length ?? post.commentCount,
         }));
       } catch (_error) {
-        // Leave the section open with the current local state.
+        // Keep the section open with the current local state.
       }
     }
   };
@@ -285,6 +316,7 @@ const ListPost = () => {
           [postId]: "",
         }));
       }
+
       setExpandedComments((prev) => ({
         ...prev,
         [postId]: true,
@@ -301,19 +333,26 @@ const ListPost = () => {
       return;
     }
 
+    const targetPostId = shareModalPost?.postId || postId;
+    if (!targetPostId) {
+      return;
+    }
+
     try {
-      setSharingPostId(shareModalPost.postId);
+      setSharingPostId(targetPostId);
       setIsSubmittingShare(true);
-      const res = await api.post(`/api/posts/${shareModalPost.postId}/share`, {
+      const res = await api.post(`/api/posts/${targetPostId}/share`, {
         caption: shareCaption,
       });
+
       if (res.data?.post) {
         setPosts((prev) => [res.data.post, ...prev]);
-        updatePostById(postId, (post) => ({
+        updatePostById(targetPostId, (post) => ({
           ...post,
           shareCount: (post.shareCount || 0) + 1,
         }));
       }
+
       setShareMessage("Chia se bai viet thanh cong!");
       setShareSuccess(true);
       setTimeout(() => setShareSuccess(false), 2500);
@@ -335,37 +374,6 @@ const ListPost = () => {
       return;
     }
 
-        {posts.map((post) => (
-          <div
-            key={post.postId}
-            className="bg-white rounded-[32px] shadow-sm border border-slate-200/50 overflow-hidden group transition-all duration-300 hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)]"
-          >
-            <div className="p-5 flex items-center gap-3 justify-between">
-              <div className="flex items-center gap-3">
-                <img
-                  src={resolveAssetUrl(post.avatar)}
-                  className="w-10 h-10 rounded-[14px] object-cover"
-                  alt={post.username}
-                />
-                <div>
-                  <h4 className="font-bold text-slate-800 text-[15px] leading-none">
-                    {post.username}
-                  </h4>
-                  <p className="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1 font-medium">
-                    <Compass size={10} strokeWidth={2.5} /> Viet Nam . {formatTimeAgo(post.createdAt)}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setReportingPostId(post.postId);
-                  setShowReportModal(true);
-                }}
-                className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500 hover:text-slate-700"
-                title="Báo cáo bài viết"
-              >
-                <MoreVertical size={18} />
-              </button>
     try {
       const res = await api.put(`/api/posts/${post.postId}`, {
         content: nextContent,
@@ -410,21 +418,14 @@ const ListPost = () => {
     return comments.find((comment) => comment.commentId === parentCommentId) || null;
   };
 
-  const renderCommentThread = (
-    post: PostItem,
-    comment: CommentItem,
-    depth = 0
-  ) => {
+  const renderCommentThread = (post: PostItem, comment: CommentItem, depth = 0): JSX.Element => {
     const replies = getReplies(post.comments || [], comment.commentId);
     const parentComment = getParentComment(post.comments || [], comment.parentComment);
     const marginClass = depth > 0 ? "ml-4 border-l border-slate-200 pl-4" : "";
     const avatarSizeClass = depth > 0 ? "w-8 h-8" : "w-9 h-9";
 
     return (
-      <div
-        key={comment.commentId}
-        className={`space-y-3 ${marginClass}`.trim()}
-      >
+      <div key={comment.commentId} className={`space-y-3 ${marginClass}`.trim()}>
         <div className="flex items-start gap-3">
           <img
             src={resolveAssetUrl(comment.avatar)}
@@ -435,17 +436,14 @@ const ListPost = () => {
             <div className="rounded-2xl bg-white border border-slate-200 px-4 py-3">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-bold text-slate-700">{comment.username}</p>
-                <span className="text-[11px] text-slate-400">
-                  {formatTimeAgo(comment.createdAt)}
-                </span>
+                <span className="text-[11px] text-slate-400">{formatTimeAgo(comment.createdAt)}</span>
               </div>
               {parentComment && (
-                <p className="text-xs font-medium text-blue-600 mt-1">
-                  Reply {parentComment.username}
-                </p>
+                <p className="text-xs font-medium text-blue-600 mt-1">Reply {parentComment.username}</p>
               )}
               <p className="text-sm text-slate-600 mt-1 leading-6">{comment.content}</p>
             </div>
+
             <button
               onClick={() =>
                 setReplyingTo((prev) => ({
@@ -481,8 +479,7 @@ const ListPost = () => {
                 <button
                   onClick={() => handleSubmitComment(post.postId, comment.commentId)}
                   disabled={
-                    submittingCommentId === post.postId ||
-                    !(replyDrafts[comment.commentId] || "").trim()
+                    submittingCommentId === post.postId || !(replyDrafts[comment.commentId] || "").trim()
                   }
                   className="p-2 rounded-xl bg-blue-600 text-white disabled:bg-slate-200 disabled:text-slate-400 transition-colors"
                 >
@@ -503,47 +500,58 @@ const ListPost = () => {
   };
 
   return (
-    <div ref={scrollRef} className="space-y-6 max-w-2xl mx-auto p-4">
-      <PostCreator username={user?.username || "Me"} onPostCreated={addNewPost} />
+    <>
+      <div ref={scrollRef} className="space-y-6 max-w-2xl mx-auto p-4">
+        <PostCreator username={user?.username || "Me"} onPostCreated={addNewPost} />
 
-      {posts.map((post) => (
-        <div
-          key={post.postId}
-          className="bg-white rounded-[32px] shadow-sm border border-slate-200/50 overflow-hidden group transition-all duration-300 hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)]"
-        >
-          <div className="p-5 flex items-center gap-3">
-            <img
-              src={resolveAssetUrl(post.avatar)}
-              className="w-10 h-10 rounded-[14px] object-cover"
-              alt={post.username}
-            />
-            <div className="flex-1">
-              <h4 className="font-bold text-slate-800 text-[15px] leading-none">
-                {post.username}
-              </h4>
-              <p className="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1 font-medium">
-                <Compass size={10} strokeWidth={2.5} /> Viet Nam . {formatTimeAgo(post.createdAt)}
-              </p>
-            </div>
-            {post.isOwner && (
+        {posts.map((post) => (
+          <div
+            key={post.postId}
+            className="bg-white rounded-[32px] shadow-sm border border-slate-200/50 overflow-hidden group transition-all duration-300 hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)]"
+          >
+            <div className="p-5 flex items-center gap-3 justify-between">
+              <div className="flex items-center gap-3">
+                <img
+                  src={resolveAssetUrl(post.avatar)}
+                  className="w-10 h-10 rounded-[14px] object-cover"
+                  alt={post.username}
+                />
+                <div>
+                  <h4 className="font-bold text-slate-800 text-[15px] leading-none">{post.username}</h4>
+                  <p className="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1 font-medium">
+                    <Compass size={10} strokeWidth={2.5} /> Viet Nam . {formatTimeAgo(post.createdAt)}
+                  </p>
+                </div>
+              </div>
+
               <div className="flex items-center gap-2">
+                {post.isOwner && (
+                  <>
+                    <button
+                      onClick={() => handleEditPost(post)}
+                      className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                      title="Sua bai viet"
+                    >
+                      <Pencil size={16} />
+                    </button>
+                    <button
+                      onClick={() => handleDeletePost(post.postId)}
+                      className="p-2 rounded-xl text-rose-500 hover:bg-rose-50 transition-colors"
+                      title="Xoa bai viet"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </>
+                )}
                 <button
-                  onClick={() => handleEditPost(post)}
+                  onClick={() => openReportModal(post.postId)}
                   className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-                  title="Sua bai viet"
+                  title="Bao cao bai viet"
                 >
-                  <Pencil size={16} />
-                </button>
-                <button
-                  onClick={() => handleDeletePost(post.postId)}
-                  className="p-2 rounded-xl text-rose-500 hover:bg-rose-50 transition-colors"
-                  title="Xoa bai viet"
-                >
-                  <Trash2 size={16} />
+                  <MoreVertical size={18} />
                 </button>
               </div>
-            )}
-          </div>
+            </div>
 
             <div className="px-5 pb-2">
               <p className="text-slate-700 text-[15px] leading-[1.6]">{post.content}</p>
@@ -553,9 +561,7 @@ const ListPost = () => {
               <div className="px-5 pb-3">
                 <div className="rounded-2xl border border-slate-200 bg-slate-50/70 overflow-hidden">
                   <div className="px-4 py-3 border-b border-slate-200/70">
-                    <p className="text-[12px] font-semibold text-slate-500">
-                      Chia se tu {post.sharedPost.username}
-                    </p>
+                    <p className="text-[12px] font-semibold text-slate-500">Chia se tu {post.sharedPost.username}</p>
                     <p className="text-[11px] text-slate-400 mt-1">
                       Bai goc: {formatTimeAgo(post.sharedPost.createdAt)}
                     </p>
@@ -566,7 +572,7 @@ const ListPost = () => {
                   {post.sharedPost.fileUrl && (
                     <div className="px-4 pb-4">
                       <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-slate-100 border border-slate-100">
-                        {isVideo(post.sharedPost.fileUrl) ? (
+                        {isVideoFile(post.sharedPost.fileType, post.sharedPost.fileUrl) ? (
                           <video
                             src={resolveAssetUrl(post.sharedPost.fileUrl)}
                             controls
@@ -589,12 +595,8 @@ const ListPost = () => {
             {post.fileUrl && (
               <div className="px-5">
                 <div className="relative aspect-video w-full overflow-hidden rounded-[24px] bg-slate-100 border border-slate-100">
-                  {isVideo(post.fileUrl) ? (
-                    <video
-                      src={resolveAssetUrl(post.fileUrl)}
-                      controls
-                      className="w-full h-full object-cover"
-                    />
+                  {isVideoFile(post.fileType, post.fileUrl) ? (
+                    <video src={resolveAssetUrl(post.fileUrl)} controls className="w-full h-full object-cover" />
                   ) : (
                     <img
                       src={resolveAssetUrl(post.fileUrl)}
@@ -606,13 +608,26 @@ const ListPost = () => {
               </div>
             )}
 
+            {(post.likeCount > 0 || post.commentCount > 0 || post.shareCount > 0) && (
+              <div className="px-5 pb-3 text-xs text-slate-400 font-medium flex items-center gap-3 pt-3">
+                <span>{post.likeCount || 0} luot thich</span>
+                <span>{post.commentCount || 0} binh luan</span>
+                <span>{post.shareCount || 0} chia se</span>
+              </div>
+            )}
+
             <div className="p-5 pt-4 flex gap-2 border-t border-slate-50">
               <button
-                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl transition-all font-bold text-xs uppercase ${post.likedByCurrentUser ? "bg-rose-50 text-rose-500" : "hover:bg-slate-50 text-slate-600"}`}
+                onClick={() => handleToggleLike(post.postId)}
+                disabled={likingPostId === post.postId}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl transition-all font-bold text-xs uppercase disabled:opacity-60 ${post.likedByCurrentUser ? "bg-rose-50 text-rose-500" : "hover:bg-slate-50 text-slate-600"}`}
               >
                 <Heart size={18} fill={post.likedByCurrentUser ? "currentColor" : "none"} /> Like
               </button>
-              <button className="flex-1 flex items-center justify-center gap-2 py-3 hover:bg-slate-50 rounded-2xl transition-all text-slate-600 font-bold text-xs uppercase">
+              <button
+                onClick={() => handleToggleComments(post.postId)}
+                className="flex-1 flex items-center justify-center gap-2 py-3 hover:bg-slate-50 rounded-2xl transition-all text-slate-600 font-bold text-xs uppercase"
+              >
                 <MessageSquare size={18} /> Comment
               </button>
               <button
@@ -623,22 +638,66 @@ const ListPost = () => {
                 <Share2 size={18} /> Share
               </button>
             </div>
+
+            {expandedComments[post.postId] && (
+              <div className="px-5 pb-5 border-t border-slate-100 bg-slate-50/40">
+                <div className="space-y-3 py-4">
+                  {(post.comments || []).length > 0 ? (
+                    getRootComments(post.comments || []).map((comment) => renderCommentThread(post, comment))
+                  ) : (
+                    <p className="text-sm text-slate-400">Chua co binh luan nao.</p>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <img
+                    src={resolveAssetUrl(user?.avatar || user?.avatarUrl)}
+                    alt={user?.username || "Me"}
+                    className="w-9 h-9 rounded-xl object-cover"
+                  />
+                  <div className="flex-1 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2">
+                    <input
+                      value={commentDrafts[post.postId] || ""}
+                      onChange={(e) =>
+                        setCommentDrafts((prev) => ({
+                          ...prev,
+                          [post.postId]: e.target.value,
+                        }))
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSubmitComment(post.postId);
+                        }
+                      }}
+                      className="flex-1 bg-transparent outline-none text-sm text-slate-700 placeholder:text-slate-400"
+                      placeholder="Viet binh luan..."
+                      disabled={submittingCommentId === post.postId}
+                    />
+                    <button
+                      onClick={() => handleSubmitComment(post.postId)}
+                      disabled={
+                        submittingCommentId === post.postId || !(commentDrafts[post.postId] || "").trim()
+                      }
+                      className="p-2 rounded-xl bg-blue-600 text-white disabled:bg-slate-200 disabled:text-slate-400 transition-colors"
+                    >
+                      <Send size={16} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>
 
       {shareModalPost && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div
-            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-            onClick={closeShareModal}
-          />
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={closeShareModal} />
 
           <div className="relative w-full max-w-[560px] bg-white rounded-[28px] shadow-2xl overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-slate-800 w-full text-center ml-8">
-                Chia se bai viet
-              </h3>
+              <h3 className="text-lg font-bold text-slate-800 w-full text-center ml-8">Chia se bai viet</h3>
               <button
                 onClick={closeShareModal}
                 className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-full transition-colors"
@@ -651,11 +710,7 @@ const ListPost = () => {
             <div className="p-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
               <div className="flex gap-3 mb-5">
                 <div className="w-12 h-12 rounded-full bg-slate-100 overflow-hidden border border-slate-100">
-                  <img
-                    src={resolveAssetUrl(user?.avatar)}
-                    alt="Avatar"
-                    className="w-full h-full object-cover"
-                  />
+                  <img src={resolveAssetUrl(user?.avatar || user?.avatarUrl)} alt="Avatar" className="w-full h-full object-cover" />
                 </div>
                 <div>
                   <p className="font-bold text-slate-900 leading-tight mb-1">{user?.username || "Me"}</p>
@@ -677,32 +732,22 @@ const ListPost = () => {
                 disabled={isSubmittingShare}
               />
 
-          {(post.likeCount > 0 || post.commentCount > 0 || post.shareCount > 0) && (
-            <div className="px-5 pb-3 text-xs text-slate-400 font-medium flex items-center gap-3">
-              <span>{post.likeCount || 0} luot thich</span>
-              <span>{post.commentCount || 0} binh luan</span>
-              <span>{post.shareCount || 0} chia se</span>
-            </div>
-          )}
-
-          {post.sharedPost && (
-            <div className="px-5 pb-3">
               <div className="rounded-2xl border border-slate-200 bg-slate-50/70 overflow-hidden">
                 <div className="px-4 py-3 border-b border-slate-200/70">
                   <p className="text-[12px] font-semibold text-slate-500">
                     Bai ban muon chia se: {shareModalPost.username}
                   </p>
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    {formatTimeAgo(shareModalPost.createdAt)}
-                  </p>
+                  <p className="text-[11px] text-slate-400 mt-1">{formatTimeAgo(shareModalPost.createdAt)}</p>
                 </div>
                 <div className="p-4">
-                  <p className="text-slate-700 text-sm leading-6">{shareModalPost.content || "Bai viet khong co mo ta"}</p>
+                  <p className="text-slate-700 text-sm leading-6">
+                    {shareModalPost.content || "Bai viet khong co mo ta"}
+                  </p>
                 </div>
                 {shareModalPost.fileUrl && (
                   <div className="px-4 pb-4">
                     <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-slate-100 border border-slate-100">
-                      {isVideoFile(post.sharedPost.fileType, post.sharedPost.fileUrl) ? (
+                      {isVideoFile(shareModalPost.fileType, shareModalPost.fileUrl) ? (
                         <video
                           src={resolveAssetUrl(shareModalPost.fileUrl)}
                           controls
@@ -720,108 +765,30 @@ const ListPost = () => {
                 )}
               </div>
             </div>
-          )}
 
-          {post.fileUrl && (
-            <div className="px-5">
-              <div className="relative aspect-video w-full overflow-hidden rounded-[24px] bg-slate-100 border border-slate-100">
-                {isVideoFile(post.fileType, post.fileUrl) ? (
-                  <video
-                    src={resolveAssetUrl(post.fileUrl)}
-                    controls
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <img
-                    src={resolveAssetUrl(post.fileUrl)}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                    alt="post-media"
-                  />
-                )}
-              </div>
+            <div className="p-5 border-t border-slate-100 flex gap-3">
+              <button
+                onClick={closeShareModal}
+                disabled={isSubmittingShare}
+                className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition-colors disabled:opacity-60"
+              >
+                Huy
+              </button>
+              <button
+                onClick={() => handleSharePost(shareModalPost.postId)}
+                disabled={isSubmittingShare}
+                className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-colors disabled:opacity-60"
+              >
+                {isSubmittingShare ? "Dang chia se..." : "Chia se"}
+              </button>
             </div>
-          )}
-
-          <div className="p-5 pt-4 flex gap-2 border-t border-slate-50">
-            <button
-              onClick={() => handleToggleLike(post.postId)}
-              disabled={likingPostId === post.postId}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl transition-all font-bold text-xs uppercase disabled:opacity-60 ${post.likedByCurrentUser ? "bg-rose-50 text-rose-500" : "hover:bg-slate-50 text-slate-600"}`}
-            >
-              <Heart size={18} fill={post.likedByCurrentUser ? "currentColor" : "none"} /> Like
-            </button>
-            <button
-              onClick={() => handleToggleComments(post.postId)}
-              className="flex-1 flex items-center justify-center gap-2 py-3 hover:bg-slate-50 rounded-2xl transition-all text-slate-600 font-bold text-xs uppercase"
-            >
-              <MessageSquare size={18} /> Comment
-            </button>
-            <button
-              onClick={() => handleSharePost(post.postId)}
-              disabled={sharingPostId === post.postId}
-              className="flex-1 flex items-center justify-center gap-2 py-3 hover:bg-slate-50 rounded-2xl transition-all text-slate-600 font-bold text-xs uppercase disabled:opacity-60"
-            >
-              <Share2 size={18} /> Share
-            </button>
           </div>
-
-          {expandedComments[post.postId] && (
-            <div className="px-5 pb-5 border-t border-slate-100 bg-slate-50/40">
-              <div className="space-y-3 py-4">
-                {(post.comments || []).length > 0 ? (
-                  getRootComments(post.comments || []).map((comment) =>
-                    renderCommentThread(post, comment)
-                  )
-                ) : (
-                  <p className="text-sm text-slate-400">Chua co binh luan nao.</p>
-                )}
-              </div>
-
-              <div className="flex items-center gap-3">
-                <img
-                  src={resolveAssetUrl(user?.avatarUrl)}
-                  alt={user?.username || "Me"}
-                  className="w-9 h-9 rounded-xl object-cover"
-                />
-                <div className="flex-1 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2">
-                  <input
-                    value={commentDrafts[post.postId] || ""}
-                    onChange={(e) =>
-                      setCommentDrafts((prev) => ({
-                        ...prev,
-                        [post.postId]: e.target.value,
-                      }))
-                    }
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSubmitComment(post.postId);
-                      }
-                    }}
-                    className="flex-1 bg-transparent outline-none text-sm text-slate-700 placeholder:text-slate-400"
-                    placeholder="Viet binh luan..."
-                    disabled={submittingCommentId === post.postId}
-                  />
-                  <button
-                    onClick={() => handleSubmitComment(post.postId)}
-                    disabled={
-                      submittingCommentId === post.postId ||
-                      !(commentDrafts[post.postId] || "").trim()
-                    }
-                    className="p-2 rounded-xl bg-blue-600 text-white disabled:bg-slate-200 disabled:text-slate-400 transition-colors"
-                  >
-                    <Send size={16} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
       {shareSuccess && <AlertSuccess message={shareMessage} />}
       {shareError && <AlertError messages={[shareMessage]} />}
-      
+
       {showReportModal && reportingPostId && (
         <ReportModal
           postId={reportingPostId}
@@ -830,7 +797,7 @@ const ListPost = () => {
             setReportingPostId(null);
           }}
           onReportSuccess={() => {
-            // Optional: refresh posts or show message
+            // optional callback hook
           }}
         />
       )}
