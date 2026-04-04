@@ -31,8 +31,8 @@ const ListFriends = () => {
   const [chatHistory, setChatHistory] = useState<any[]>([]);
   const [messageInput, setMessageInput] = useState("");
 
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [filePreviews, setFilePreviews] = useState<{ url: string; type: string; name: string; size: number }[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -73,35 +73,40 @@ const ListFriends = () => {
   }, [socket, selectedFriend, user]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-      // Nếu là ảnh thì tạo link preview, nếu không thì thôi
-      if (file.type.startsWith("image/")) {
-        setFilePreview(URL.createObjectURL(file));
-      } else {
-        setFilePreview(null);
-      }
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      setSelectedFiles((prev) => [...prev, ...files]);
+      const newPreviews = files.map((file) => ({
+        url: file.type.startsWith("image/") ? URL.createObjectURL(file) : "",
+        type: file.type,
+        name: file.name,
+        size: file.size,
+      }));
+      setFilePreviews((prev) => [...prev, ...newPreviews]);
     }
+    if (e.target) e.target.value = "";
+  };
+
+  const handleRemoveFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    setFilePreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSendMessage = async () => {
     if (!socket || !selectedFriend) return;
-    if (!messageInput.trim() && !selectedFile) return;
+    if (!messageInput.trim() && selectedFiles.length === 0) return;
 
-    let fileUrl = "";
-    let fileType = "";
+    let uploadedFiles: any[] = [];
 
-    if (selectedFile) {
+    if (selectedFiles.length > 0) {
       const formData = new FormData();
-      formData.append("file", selectedFile);
+      selectedFiles.forEach((file) => formData.append("files", file));
       try {
         const res = await api.post("/api/chatmessages/upload", formData, {
           headers: { "Content-Type": "multipart/form-data" },
         });
 
-        fileUrl = res.data.url;
-        fileType = res.data.type;
+        uploadedFiles = res.data.files;
       } catch (err) {
         console.error("Upload lỗi:", err);
         return;
@@ -112,13 +117,12 @@ const ListFriends = () => {
       senderId: user._id,
       receiverId: selectedFriend.id,
       content: messageInput,
-      fileUrl,
-      fileType,
+      files: uploadedFiles,
     });
 
     setMessageInput("");
-    setSelectedFile(null);
-    setFilePreview(null);
+    setSelectedFiles([]);
+    setFilePreviews([]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -227,7 +231,15 @@ const ListFriends = () => {
 
             {chatHistory.map((msg, idx) => {
               const isMe = msg.senderId === user?._id;
-              const isImage = msg.fileType?.startsWith("image/");
+              const files = msg.files || [];
+
+              // Tương thích ngược với dữ liệu cũ (chỉ 1 file)
+              if (!msg.files && msg.fileUrl) {
+                files.push({
+                  url: msg.fileUrl,
+                  type: msg.fileType || "file",
+                });
+              }
 
               return (
                 <div
@@ -243,57 +255,65 @@ const ListFriends = () => {
                       </p>
                     )}
 
-                    {msg.fileUrl && (
-                      <div
-                        className={`mt-2 rounded-lg overflow-hidden ${isMe ? "bg-blue-700/30" : "bg-slate-50"} p-2 border border-black/5`}
-                      >
-                        {isImage ? (
-                          <div className="relative group/img">
-                            <img
-                              src={msg.fileUrl}
-                              className="max-w-full rounded-md object-cover max-h-60"
-                              alt="attachment"
-                            />
-                            <a
-                              href={`/api/chatmessages/download/${msg.fileUrl.split("/").pop()}`}
-                              download
-                              target="_blank"
-                              rel="noreferrer"
-                              className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity rounded-md"
-                            >
-                              <Download className="text-white" size={24} />
-                            </a>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-3 py-1 px-2">
+                    {files.length > 0 && (
+                      <div className="mt-2 space-y-2">
+                        {files.map((file: any, fileIdx: number) => {
+                          const isImage = file.type?.startsWith("image/");
+                          return (
                             <div
-                              className={`p-2 rounded-lg ${isMe ? "bg-blue-500" : "bg-blue-100 text-blue-600"}`}
+                              key={fileIdx}
+                              className={`rounded-lg overflow-hidden flex ${isMe ? "bg-blue-700/30" : "bg-slate-50"} p-2 border border-black/5`}
                             >
-                              <FileText size={20} />
+                              {isImage ? (
+                                <div className="relative group/img flex-1">
+                                  <img
+                                    src={file.url}
+                                    className="w-full rounded-md object-cover max-h-60"
+                                    alt="attachment"
+                                  />
+                                  <a
+                                    href={`/api/chatmessages/download/${file.url.split("/").pop()}`}
+                                    download
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity rounded-md"
+                                  >
+                                    <Download className="text-white" size={24} />
+                                  </a>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-3 py-1 px-2 w-full">
+                                  <div
+                                    className={`p-2 rounded-lg ${isMe ? "bg-blue-500" : "bg-blue-100 text-blue-600"}`}
+                                  >
+                                    <FileText size={20} />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p
+                                      className={`text-[12px] font-medium truncate ${isMe ? "text-blue-50" : "text-slate-700"}`}
+                                    >
+                                      {file.name || "Tài liệu đính kèm"}
+                                    </p>
+                                    <p
+                                      className={`text-[10px] opacity-70 ${isMe ? "text-white" : "text-slate-500"}`}
+                                    >
+                                      {file.size ? `${(file.size / 1024).toFixed(1)} KB - ` : ""}Bấm để tải xuống
+                                    </p>
+                                  </div>
+                                  <a
+                                    href={file.url}
+                                    download
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className={`p-2 rounded-full transition-colors ${isMe ? "hover:bg-blue-500 text-white" : "hover:bg-slate-200 text-slate-500"}`}
+                                  >
+                                    <Download size={18} />
+                                  </a>
+                                </div>
+                              )}
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <p
-                                className={`text-[12px] font-medium truncate ${isMe ? "text-blue-50" : "text-slate-700"}`}
-                              >
-                                Tài liệu đính kèm
-                              </p>
-                              <p
-                                className={`text-[10px] opacity-70 ${isMe ? "text-white" : "text-slate-500"}`}
-                              >
-                                Bấm để tải xuống
-                              </p>
-                            </div>
-                            <a
-                              href={msg.fileUrl}
-                              download
-                              target="_blank"
-                              rel="noreferrer"
-                              className={`p-2 rounded-full transition-colors ${isMe ? "hover:bg-blue-500 text-white" : "hover:bg-slate-200 text-slate-500"}`}
-                            >
-                              <Download size={18} />
-                            </a>
-                          </div>
-                        )}
+                          );
+                        })}
                       </div>
                     )}
                     <span
@@ -312,42 +332,48 @@ const ListFriends = () => {
 
           {/* INPUT AREA */}
           <div className="p-4 border-t bg-white">
-            {/* FILE PREVIEW PANEL */}
-            {selectedFile && (
-              <div className="mb-3 p-2 bg-blue-50 rounded-2xl flex items-center gap-3 border border-blue-100 animate-in fade-in slide-in-from-bottom-2">
-                {filePreview ? (
-                  <img
-                    src={filePreview}
-                    className="w-12 h-12 rounded-lg object-cover border border-white shadow-sm"
-                  />
-                ) : (
-                  <div className="w-12 h-12 rounded-lg bg-blue-200 flex items-center justify-center text-blue-600">
-                    <FileText size={20} />
+            {/* MULTI FILE PREVIEW PANEL */}
+            {filePreviews.length > 0 && (
+              <div className="mb-3 px-1 flex gap-2 overflow-x-auto pb-2 scroll-smooth">
+                {filePreviews.map((preview, index) => (
+                  <div
+                    key={index}
+                    className="relative shrink-0 w-48 p-2 bg-blue-50 rounded-2xl border border-blue-100 flex items-center gap-3 animate-in fade-in zoom-in-95"
+                  >
+                    {preview.url ? (
+                      <img
+                        src={preview.url}
+                        className="w-12 h-12 rounded-lg object-cover border border-white shadow-sm"
+                        alt="preview"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-lg bg-blue-200 flex items-center justify-center text-blue-600">
+                        <FileText size={20} />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0 pr-6">
+                      <p className="text-[11px] font-bold text-blue-700 truncate">
+                        {preview.name}
+                      </p>
+                      <p className="text-[9px] text-blue-500 mt-0.5">
+                        {(preview.size / 1024).toFixed(1)} KB
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleRemoveFile(index)}
+                      className="absolute top-1 right-1 p-1 bg-white hover:bg-slate-200 rounded-full text-slate-500 transition-colors shadow-sm"
+                    >
+                      <X size={12} />
+                    </button>
                   </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-[12px] font-bold text-blue-700 truncate">
-                    {selectedFile.name}
-                  </p>
-                  <p className="text-[10px] text-blue-500">
-                    {(selectedFile.size / 1024).toFixed(1)} KB
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    setSelectedFile(null);
-                    setFilePreview(null);
-                  }}
-                  className="p-1.5 hover:bg-blue-200 rounded-full text-blue-600 transition-colors"
-                >
-                  <X size={16} />
-                </button>
+                ))}
               </div>
             )}
 
             <div className="bg-slate-100 rounded-[24px] px-4 py-2.5 flex items-center gap-3 transition-all focus-within:bg-slate-200 focus-within:ring-2 ring-blue-100">
               <input
                 type="file"
+                multiple
                 hidden
                 ref={fileInputRef}
                 onChange={handleFileChange}
@@ -373,9 +399,9 @@ const ListFriends = () => {
 
               <button
                 onClick={handleSendMessage}
-                disabled={!messageInput.trim() && !selectedFile}
+                disabled={!messageInput.trim() && selectedFiles.length === 0}
                 className={`p-2 rounded-full transition-all ${
-                  messageInput.trim() || selectedFile
+                  messageInput.trim() || selectedFiles.length > 0
                     ? "bg-blue-600 text-white shadow-md hover:scale-110 active:scale-95"
                     : "text-slate-300"
                 }`}

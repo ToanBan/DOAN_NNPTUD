@@ -22,13 +22,25 @@ const GetMessagesByUserId = async (req, res) => {
       message: { $in: messageIds },
     }).lean();
 
-    const fileMap = new Map(files.map((f) => [String(f.message), f]));
+    // Group files by message _id
+    const fileMap = new Map();
+    files.forEach((f) => {
+      const msgId = String(f.message);
+      if (!fileMap.has(msgId)) {
+        fileMap.set(msgId, []);
+      }
+      fileMap.get(msgId).push({
+        url: f.fileUrl,
+        type: f.fileType,
+        name: f.fileName,
+        size: f.fileSize,
+      });
+    });
 
     // ✅ merge
     const result = messages.map((msg) => ({
       ...msg,
-      fileUrl: fileMap.get(String(msg._id))?.fileUrl || null,
-      fileType: fileMap.get(String(msg._id))?.fileType || null,
+      files: fileMap.get(String(msg._id)) || [],
     }));
 
     res.json({ messages: result });
@@ -40,11 +52,18 @@ const GetMessagesByUserId = async (req, res) => {
 
 const UploadMessageFile = async (req, res) => {
   try {
-    const fileUrl = `${process.env.URL_UPLOADS}messages/${req.file.filename}`;
-    res.json({
-      url: fileUrl,
-      type: req.file.mimetype,
-    });
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: "Không có file nào được upload" });
+    }
+
+    const uploadedFiles = req.files.map((file) => ({
+      url: `${process.env.URL_UPLOADS}messages/${file.filename}`,
+      type: file.mimetype,
+      name: file.originalname,
+      size: file.size,
+    }));
+
+    res.json({ files: uploadedFiles });
   } catch (err) {
     res.status(500).json({ message: "Upload lỗi" });
   }

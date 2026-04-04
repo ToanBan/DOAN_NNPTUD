@@ -12,7 +12,6 @@ const messageFileSchema = new mongoose.Schema(
 
     fileType: {
       type: String,
-      enum: ["file"],
       required: true
     },
 

@@ -1,8 +1,9 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Settings,
   MapPin,
   Edit3,
+  Plus,
   Grid,
   Video,
   Bookmark,
@@ -21,11 +22,11 @@ import {
 } from "lucide-react";
 import handleEditProfile from "../api/user/handleEditProfile";
 import handleChangePassword from "../api/user/handleChangePassword";
+import handleAddForum from "../api/forum/handleAddForum";
 import AlertSuccess from "./AlertSuccess";
 import AlertError from "./AlertError";
 import { useUser } from "../context/authContext";
-
-// --- Interfaces ---
+import getMyForum from "../api/forum/getMyForum";
 interface Post {
   postId: string;
   content: string;
@@ -47,6 +48,12 @@ interface Post {
   } | null;
 }
 
+interface ForumItem {
+  forumId: string;
+  name: string;
+  description: string;
+}
+
 interface ContextProfileProps {
   user: any;
   myself: boolean;
@@ -56,7 +63,6 @@ interface ContextProfileProps {
   onToggleFollow?: () => void;
 }
 
-// --- Main Component ---
 const ContextProfile: React.FC<ContextProfileProps> = ({
   user,
   myself,
@@ -66,7 +72,11 @@ const ContextProfile: React.FC<ContextProfileProps> = ({
   onToggleFollow,
 }) => {
   const [showSettings, setShowSettings] = useState(false);
-  const [activeModal, setActiveModal] = useState<"none" | "edit-profile" | "change-password">("none");
+  const [activeTab, setActiveTab] = useState<"posts" | "reels" | "saved">("posts");
+  const [activeModal, setActiveModal] = useState<"none" | "edit-profile" | "change-password" | "create-forum">("none");
+  const [createdForums, setCreatedForums] = useState<ForumItem[]>([]);
+  const [forumFormData, setForumFormData] = useState({ name: "", description: "" });
+  const [isSavingForum, setIsSavingForum] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState(false);
   const [message, setMessage] = useState("");
@@ -74,7 +84,6 @@ const ContextProfile: React.FC<ContextProfileProps> = ({
   const settingsRef = useRef<HTMLDivElement>(null);
   const { getProfile } = useUser();
 
-  // --- Helpers ---
   const isVideo = (url?: string) => (url ? /\.(mp4|webm|mov|mkv)$/i.test(url) : false);
 
   const resolveAssetUrl = (url?: string) => {
@@ -100,7 +109,6 @@ const ContextProfile: React.FC<ContextProfileProps> = ({
     return date.toLocaleDateString("vi-VN");
   };
 
-  // --- Handlers ---
   const handleSubmitEditProfile = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -149,6 +157,57 @@ const ContextProfile: React.FC<ContextProfileProps> = ({
       setError(true);
       setMessage(err.response?.data?.message || "Có lỗi xảy ra");
     } finally {
+      setTimeout(() => { setSuccess(false); setError(false); }, 3000);
+    }
+  };
+
+  useEffect(() => {
+    const fetchCreatedForums = async () => {
+      if (!user?._id) return;
+      try {
+        const response = await getMyForum();
+        console.log("Diễn đàn đã tạo:", response);
+        setCreatedForums(response);
+      } catch (fetchError) {
+        console.error("Lỗi khi lấy diễn đàn đã tạo:", fetchError);
+      }
+    };
+
+    fetchCreatedForums();
+  }, [user?._id]);
+
+  const handleForumInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setForumFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmitCreateForum = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (!forumFormData.name.trim()) {
+      setError(true);
+      setMessage("Vui lòng nhập tên diễn đàn.");
+      setTimeout(() => { setError(false); }, 3000);
+      return;
+    }
+
+    setIsSavingForum(true);
+
+    try {
+      const result = await handleAddForum(forumFormData);
+      if (result?.forum) {
+        setCreatedForums((prev) => [result.forum, ...prev]);
+        setSuccess(true);
+        setMessage("Tạo diễn đàn thành công.");
+        setActiveModal("none");
+        setForumFormData({ name: "", description: "" });
+      }
+    } catch (err: any) {
+      console.error("Create forum error:", err);
+      setError(true);
+      setMessage(err.response?.data?.message || "Không thể tạo diễn đàn.");
+    } finally {
+      setIsSavingForum(false);
       setTimeout(() => { setSuccess(false); setError(false); }, 3000);
     }
   };
@@ -218,6 +277,7 @@ const ContextProfile: React.FC<ContextProfileProps> = ({
                         <div className="px-4 py-3 border-b border-slate-50 mb-1">
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Hệ thống</p>
                         </div>
+                        <SettingsMenuItem icon={<Plus size={18} />} label="Tạo diễn đàn" onClick={() => { setActiveModal("create-forum"); setShowSettings(false); }} />
                         <SettingsMenuItem icon={<User size={18} />} label="Chỉnh sửa Profile" onClick={() => { setActiveModal("edit-profile"); setShowSettings(false); }} />
                         <SettingsMenuItem icon={<Lock size={18} />} label="Đổi mật khẩu" onClick={() => { setActiveModal("change-password"); setShowSettings(false); }} />
                       </div>
@@ -262,21 +322,50 @@ const ContextProfile: React.FC<ContextProfileProps> = ({
           {/* Posts Main */}
           <div className="lg:col-span-8">
             <div className="flex items-center gap-10 border-b border-slate-200 mb-8">
-              <TabItem icon={<Grid size={18} />} label="Bài viết" active />
-              <TabItem icon={<Video size={18} />} label="Reels" />
-              <TabItem icon={<Bookmark size={18} />} label="Đã lưu" />
+              <TabItem icon={<Grid size={18} />} label="Bài viết" active={activeTab === "posts"} onClick={() => setActiveTab("posts")} />
+              <TabItem icon={<Video size={18} />} label="Reels" active={activeTab === "reels"} onClick={() => setActiveTab("reels")} />
+              <TabItem icon={<Bookmark size={18} />} label="Đã lưu" active={activeTab === "saved"} onClick={() => setActiveTab("saved")} />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {posts.map((post) => (
-                <PostCard key={post.postId} post={post} formatTimeAgo={formatTimeAgo} resolveAssetUrl={resolveAssetUrl} isVideo={isVideo} />
-              ))}
-              {posts.length === 0 && (
-                <div className="col-span-full py-20 text-center border-2 border-dashed border-slate-200 rounded-[32px] text-slate-400 font-bold">
-                  Chưa có bài viết nào được hiển thị.
-                </div>
-              )}
-            </div>
+            {activeTab === "posts" && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {posts.map((post) => (
+                  <PostCard key={post.postId} post={post} formatTimeAgo={formatTimeAgo} resolveAssetUrl={resolveAssetUrl} isVideo={isVideo} />
+                ))}
+                {posts.length === 0 && (
+                  <div className="col-span-full py-20 text-center border-2 border-dashed border-slate-200 rounded-[32px] text-slate-400 font-bold">
+                    Chưa có bài viết nào được hiển thị.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === "reels" && (
+              <div className="grid grid-cols-1 gap-6">
+                {createdForums.length > 0 ? (
+                  createdForums.map((forum) => (
+                    <a
+                      key={forum.forumId}
+                      href={`/forum/${forum.forumId}`}
+                      className="block rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-all"
+                    >
+                      <h3 className="text-lg font-bold text-slate-900">{forum.name}</h3>
+                      <p className="mt-2 text-sm text-slate-500 line-clamp-2">{forum.description || "Không có mô tả"}</p>
+                    </a>
+                  ))
+                ) : (
+                  <div className="py-20 text-center border-2 border-dashed border-slate-200 rounded-[32px] text-slate-400 font-bold">
+                    Người dùng chưa tạo diễn đàn nào.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === "saved" && (
+              <div className="py-20 text-center border-2 border-dashed border-slate-200 rounded-[32px] text-slate-400 font-bold">
+                Nội dung đã lưu sẽ hiển thị ở đây.
+              </div>
+            )}
           </div>
         </div>
 
@@ -288,12 +377,25 @@ const ContextProfile: React.FC<ContextProfileProps> = ({
               <div className="p-8">
                 <div className="flex items-center justify-between mb-8">
                   <h2 className="text-2xl font-black text-slate-900">
-                    {activeModal === "edit-profile" ? "Chỉnh sửa Profile" : "Đổi mật khẩu"}
+                    {activeModal === "edit-profile"
+                      ? "Chỉnh sửa Profile"
+                      : activeModal === "change-password"
+                      ? "Đổi mật khẩu"
+                      : "Tạo diễn đàn mới"}
                   </h2>
                   <button onClick={() => setActiveModal("none")} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200"><X size={20} /></button>
                 </div>
 
-                <form onSubmit={activeModal === "edit-profile" ? handleSubmitEditProfile : handleSubmitChangePassword} className="space-y-5">
+                <form
+                  onSubmit={
+                    activeModal === "edit-profile"
+                      ? handleSubmitEditProfile
+                      : activeModal === "change-password"
+                      ? handleSubmitChangePassword
+                      : handleSubmitCreateForum
+                  }
+                  className="space-y-5"
+                >
                   {activeModal === "edit-profile" ? (
                     <>
                       <InputGroup name="username" label="Họ và tên" placeholder={user?.username} />
@@ -301,16 +403,42 @@ const ContextProfile: React.FC<ContextProfileProps> = ({
                       <InputGroup name="address" label="Địa chỉ" placeholder={user?.address} />
                       <InputGroup name="phone" label="Số điện thoại" placeholder={user?.phone} />
                     </>
-                  ) : (
+                  ) : activeModal === "change-password" ? (
                     <>
                       <InputGroup name="oldPassword" label="Mật khẩu cũ" type="password" placeholder="••••••••" />
                       <InputGroup name="newPassword" label="Mật khẩu mới" type="password" placeholder="••••••••" />
                       <InputGroup name="confirmNewPassword" label="Xác nhận mật khẩu" type="password" placeholder="••••••••" />
                     </>
+                  ) : (
+                    <>
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs font-black text-slate-500 uppercase ml-1">Tên diễn đàn</label>
+                        <input
+                          name="name"
+                          value={forumFormData.name}
+                          onChange={handleForumInputChange}
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none"
+                          placeholder="VD: Lập trình ReactJS..."
+                        />
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs font-black text-slate-500 uppercase ml-1">Mô tả</label>
+                        <textarea
+                          name="description"
+                          value={forumFormData.description}
+                          onChange={handleForumInputChange}
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none"
+                          rows={4}
+                          placeholder="Mô tả ngắn về diễn đàn..."
+                        />
+                      </div>
+                    </>
                   )}
                   <div className="pt-4 flex gap-3">
                     <button type="button" onClick={() => setActiveModal("none")} className="flex-1 py-3.5 bg-slate-100 text-slate-600 font-bold rounded-2xl">Hủy</button>
-                    <button type="submit" className="flex-1 py-3.5 bg-blue-600 text-white font-bold rounded-2xl shadow-lg">Xác nhận</button>
+                    <button type="submit" disabled={activeModal === "create-forum" ? isSavingForum : false} className="flex-1 py-3.5 bg-blue-600 text-white font-bold rounded-2xl shadow-lg disabled:opacity-70">
+                      {activeModal === "create-forum" && isSavingForum ? "Đang tạo..." : "Xác nhận"}
+                    </button>
                   </div>
                 </form>
               </div>
@@ -391,8 +519,10 @@ const StatItem = ({ label, value, isCenter }: any) => (
   </div>
 );
 
-const TabItem = ({ icon, label, active }: any) => (
-  <button className={`pb-4 px-2 border-b-2 font-black text-sm flex items-center gap-2 transition-all ${active ? "border-blue-600 text-blue-600" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
+const TabItem = ({ icon, label, active, onClick }: any) => (
+  <button
+    onClick={onClick}
+    className={`pb-4 px-2 border-b-2 font-black text-sm flex items-center gap-2 transition-all ${active ? "border-blue-600 text-blue-600" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
     {icon} {label}
   </button>
 );
