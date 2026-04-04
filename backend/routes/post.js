@@ -12,7 +12,7 @@ const {
 	getPostComments,
 	createComment,
 	hidePost,
-	deletePost,
+	adminDeletePost,
 	restorePost,
 	getHiddenPosts,
 } = require("../controllers/post");
@@ -21,16 +21,16 @@ const router = express.Router();
 
 router.get("/", verifyAccessToken, getPosts);
 router.get("/me", verifyAccessToken, getMyPosts);
-router.get("/:postId/comments", verifyAccessToken, getPostComments);
 router.get("/hidden", verifyAccessToken, getHiddenPosts);
+router.get("/:postId/comments", verifyAccessToken, getPostComments);
 router.post("/", verifyAccessToken, uploadPostFile.single("file"), createPost);
-router.put("/:postId", verifyAccessToken, updatePost);
-router.delete("/:postId", verifyAccessToken, deletePost);
-router.post("/:postId/like", verifyAccessToken, toggleLikePost);
-router.post("/:postId/comments", verifyAccessToken, createComment);
 router.post("/:postId/share", verifyAccessToken, sharePost);
+router.post("/:postId/comments", verifyAccessToken, createComment);
+router.put("/:postId", verifyAccessToken, updatePost);
+router.put("/:postId/like", verifyAccessToken, toggleLikePost);
 router.put("/:postId/hide", verifyAccessToken, hidePost);
-router.put("/:postId/delete", verifyAccessToken, deletePost);
-router.put("/:postId/restore", verifyAccessToken, restorePost);
+router.put("/:postId/delete", verifyAccessToken, verifyAdmin, adminDeletePost);
+router.put("/:postId/restore", verifyAccessToken, verifyAdmin, restorePost);
+router.delete("/:postId", verifyAccessToken, deletePost);
 
 module.exports = router;

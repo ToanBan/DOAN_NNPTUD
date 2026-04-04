@@ -292,7 +292,6 @@ const getPosts = async (req, res, next) => {
     const posts = await Post.find({
       isDeleted: false,
       isHidden: false,
-      privacy: "public",
       $or: [
         { privacy: "public" },
         { user: req.user._id },
@@ -787,7 +786,7 @@ const hidePost = async (req, res, next) => {
 };
 
 // Soft delete post (admin)
-const deletePost = async (req, res, next) => {
+const adminDeletePost = async (req, res, next) => {
   try {
     const { postId } = req.params;
     const { reason } = req.body;
@@ -911,7 +910,7 @@ module.exports = {
   getMyPosts,
   sharePost,
   hidePost,
-  deletePost,
+  adminDeletePost,
   restorePost,
   getHiddenPosts,
   toggleLikePost,
