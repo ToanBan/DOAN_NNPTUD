@@ -22,6 +22,7 @@ const PostCreator = ({ username, onPostCreated }: PostCreatorProps) => {
   const [error, setError] = useState(false);
   const [content, setContent] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [privacy, setPrivacy] = useState<"public" | "private" | "friends">("public");
   const [loading, setLoading] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -29,9 +30,14 @@ const PostCreator = ({ username, onPostCreated }: PostCreatorProps) => {
   const resetForm = () => {
     setContent("");
     setFile(null);
+    setPrivacy("public");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
+  };
+
+  const isVideoFile = (selectedFile: File | null) => {
+    return Boolean(selectedFile && selectedFile.type.startsWith("video/"));
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -46,7 +52,7 @@ const PostCreator = ({ username, onPostCreated }: PostCreatorProps) => {
     try {
       const formData = new FormData();
       formData.append("content", content.trim());
-      formData.append("privacy", "public");
+      formData.append("privacy", privacy);
 
       if (file) {
         formData.append("file", file);
@@ -140,12 +146,22 @@ const PostCreator = ({ username, onPostCreated }: PostCreatorProps) => {
                   </div>
                   <div>
                     <p className="font-bold text-slate-900 leading-tight mb-1">{username}</p>
-                    <button
-                      type="button"
-                      className="flex items-center gap-1.5 px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-[12px] font-bold text-slate-600 transition-colors"
-                    >
-                      <Globe size={14} /> Cong khai <ChevronDown size={14} />
-                    </button>
+                    <label className="relative inline-flex items-center">
+                      <Globe size={14} className="absolute left-2.5 text-slate-500 pointer-events-none" />
+                      <select
+                        value={privacy}
+                        onChange={(e) =>
+                          setPrivacy(e.target.value as "public" | "private" | "friends")
+                        }
+                        disabled={loading}
+                        className="appearance-none pl-8 pr-8 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-[12px] font-bold text-slate-600 transition-colors outline-none disabled:opacity-60"
+                      >
+                        <option value="public">Cong khai</option>
+                        <option value="friends">Ban be</option>
+                        <option value="private">Rieng tu</option>
+                      </select>
+                      <ChevronDown size={14} className="absolute right-2 text-slate-500 pointer-events-none" />
+                    </label>
                   </div>
                 </div>
 
@@ -162,7 +178,11 @@ const PostCreator = ({ username, onPostCreated }: PostCreatorProps) => {
                   {file ? (
                     <div className="flex items-center justify-between w-full bg-white p-3 rounded-xl shadow-sm border border-slate-100">
                       <div className="flex items-center gap-3 overflow-hidden">
-                        <ImageIcon className="text-blue-500 flex-shrink-0" size={20} />
+                        {isVideoFile(file) ? (
+                          <Video className="text-blue-500 flex-shrink-0" size={20} />
+                        ) : (
+                          <ImageIcon className="text-blue-500 flex-shrink-0" size={20} />
+                        )}
                         <span className="text-sm font-semibold text-slate-700 truncate">{file.name}</span>
                       </div>
                       <button
@@ -181,10 +201,10 @@ const PostCreator = ({ username, onPostCreated }: PostCreatorProps) => {
                   ) : (
                     <>
                       <div className="p-3 bg-white rounded-2xl shadow-sm mb-2 group-hover:scale-110 transition-transform">
-                        <ImageIcon size={24} className="text-slate-400" />
+                        <Video size={24} className="text-slate-400" />
                       </div>
-                      <p className="text-sm font-bold text-slate-500 mb-1">Them anh vao bai viet</p>
-                      <p className="text-[11px] text-slate-400">Hoac keo va tha</p>
+                      <p className="text-sm font-bold text-slate-500 mb-1">Them anh hoac video vao bai viet</p>
+                      <p className="text-[11px] text-slate-400">Ho tro image va video toi da 100MB</p>
                       <input
                         type="file"
                         ref={fileInputRef}

@@ -34,23 +34,40 @@ const Profile: React.FC = () => {
   const [relationshipAction, setRelationshipAction] = useState<string>("Self");
   const [loading, setLoading] = useState<boolean>(true);
 
-  const fetchProfile = useCallback(async (showLoading = true) => {
-    // Nếu không đăng nhập
-    if (!user) return;
-    
-    try {
-      if (showLoading) setLoading(true);
-      const targetId = id || user._id; // Nếu không có id route, load bản thân
-      const res = await api.get(`/api/users/profile/${targetId}`);
-      setProfileData(res.data.user);
-      setStats(res.data.stats);
-      setRelationshipAction(res.data.relationship);
-    } catch (error) {
-      console.error("Lỗi khi tải profile:", error);
-    } finally {
-      if (showLoading) setLoading(false);
+  useEffect(() => {
+    const fetchMyPosts = async () => {
+      try {
+        const res = await api.get("/api/posts/me");
+        setPosts(res.data.posts || []);
+      } catch (_error) {
+        setPosts([]);
+      }
+    };
+
+    if (user?._id) {
+      fetchMyPosts();
     }
-  }, [id, user]);
+  }, [user?._id]);
+
+  const fetchProfile = useCallback(
+    async (showLoading = true) => {
+      if (!user) return;
+
+      try {
+        if (showLoading) setLoading(true);
+        const targetId = id || user._id; 
+        const res = await api.get(`/api/users/profile/${targetId}`);
+        setProfileData(res.data.user);
+        setStats(res.data.stats);
+        setRelationshipAction(res.data.relationship);
+      } catch (error) {
+        console.error("Lỗi khi tải profile:", error);
+      } finally {
+        if (showLoading) setLoading(false);
+      }
+    },
+    [id, user],
+  );
 
   useEffect(() => {
     fetchProfile(true);
@@ -71,7 +88,7 @@ const Profile: React.FC = () => {
       // Refresh profile sau khi follow/unfollow
       await fetchProfile(false);
     } catch (error) {
-       console.error("Lỗi khi toggle follow:", error);
+      console.error("Lỗi khi toggle follow:", error);
     }
   };
 

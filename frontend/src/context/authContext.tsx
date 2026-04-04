@@ -24,7 +24,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setAccessTokenState(token);
     setAccessToken(token);
     const profile = await getProfile();
-    console.log("profile", profile);
     setUser(profile);
     return res.data;
   };

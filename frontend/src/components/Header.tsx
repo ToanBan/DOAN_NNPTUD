@@ -1,32 +1,67 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
-  Search,
-  MessageCircle,
   Bell,
-  PlusCircle,
-  User,
-  LogOut,
   ChevronDown,
+  LogOut,
+  MessageCircle,
+  PlusCircle,
+  Search,
   Settings,
+  User,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
 import { useUser } from "../context/authContext";
 import { useSocket } from "../context/socketContext";
-import Swal from "sweetalert2";
 import api from "../lib/axios";
+import { API_URL } from "../lib/config";
 
 const Header: React.FC = () => {
   const { user, logout } = useUser();
   const { socket } = useSocket();
   const navigate = useNavigate();
-  console.log(user);
-  const [isOpen, setIsOpen] = useState<boolean>(false);
-  const [searchQuery, setSearchQuery] = useState<string>("");
-  const [notificationCount, setNotificationCount] = useState<number>(0);
-  const [isNotiOpen, setIsNotiOpen] = useState<boolean>(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [notificationCount, setNotificationCount] = useState(0);
+  const [isNotiOpen, setIsNotiOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notiDropdownRef = useRef<HTMLDivElement>(null);
+
+  const resolveAvatarUrl = (avatarUrl?: string, username?: string) => {
+    if (!avatarUrl) {
+      return `https://api.dicebear.com/7.x/avataaars/svg?seed=${username || "user"}`;
+    }
+
+    if (/^https?:\/\//i.test(avatarUrl)) {
+      return avatarUrl;
+    }
+
+    return `${API_URL}/${avatarUrl.replace(/^\/+/, "")}`;
+  };
+
+  const getNotificationText = (notification: any) => {
+    const senderName = notification.sender?.username || "Ai do";
+    const postContent = notification.post?.content?.trim();
+    const postPreview = postContent
+      ? `: "${postContent.slice(0, 40)}${postContent.length > 40 ? "..." : ""}"`
+      : "";
+
+    if (notification.type === "follow") {
+      return `${senderName} da bat dau theo doi ban.`;
+    }
+
+    if (notification.type === "like") {
+      return `${senderName} da thich bai viet cua ban${postPreview}`;
+    }
+
+    if (notification.type === "comment") {
+      return `${senderName} da binh luan ve bai viet cua ban${postPreview}`;
+    }
+
+    return `${senderName} da tuong tac voi ban.`;
+  };
+
   const handleSearch = (e: React.FormEvent | React.MouseEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
@@ -43,56 +78,53 @@ const Header: React.FC = () => {
   };
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent): void => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
-      if (
-        notiDropdownRef.current &&
-        !notiDropdownRef.current.contains(event.target as Node)
-      ) {
+
+      if (notiDropdownRef.current && !notiDropdownRef.current.contains(event.target as Node)) {
         setIsNotiOpen(false);
       }
     };
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   useEffect(() => {
-    if (user) {
-      api.get('/api/users/notifications')
-        .then((res) => {
-          setNotifications(res.data.notifications);
-          setNotificationCount(res.data.unreadCount);
-        })
-        .catch(err => console.error(err));
+    if (!user) {
+      setNotifications([]);
+      setNotificationCount(0);
+      return;
     }
+
+    api
+      .get("/api/users/notifications")
+      .then((res) => {
+        setNotifications(res.data.notifications || []);
+        setNotificationCount(res.data.unreadCount || 0);
+      })
+      .catch((err) => console.error(err));
   }, [user]);
 
   useEffect(() => {
-    if (!socket) return;
+    if (!socket) {
+      return;
+    }
 
     const handleNotification = (data: any) => {
-      console.log("New notification received:", data);
       setNotificationCount((prev) => prev + 1);
       setNotifications((prev) => [data, ...prev]);
-      
-      let message = "Bạn có thông báo mới";
-      if (data.type === 'follow') {
-        message = `${data.sender?.username || 'Ai đó'} vừa mới bắt đầu theo dõi bạn!`;
-      }
 
       Swal.fire({
         toast: true,
-        position: 'top-end',
+        position: "top-end",
         showConfirmButton: false,
         timer: 4000,
         timerProgressBar: true,
-        icon: 'info',
-        title: message,
+        icon: "info",
+        title: getNotificationText(data),
       });
     };
 
@@ -104,13 +136,14 @@ const Header: React.FC = () => {
   }, [socket]);
 
   const toggleNotifications = async () => {
-    setIsNotiOpen(!isNotiOpen);
+    setIsNotiOpen((prev) => !prev);
+
     if (!isNotiOpen && notificationCount > 0) {
       try {
-        await api.put('/api/users/notifications/read');
+        await api.put("/api/users/notifications/read");
         setNotificationCount(0);
-        setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-      } catch(err) {
+        setNotifications((prev) => prev.map((notification) => ({ ...notification, isRead: true })));
+      } catch (err) {
         console.error("Error marking read", err);
       }
     }
@@ -119,10 +152,7 @@ const Header: React.FC = () => {
   return (
     <nav className="fixed top-0 inset-x-0 z-50 bg-white/70 backdrop-blur-xl border-b border-slate-200/60 px-4 md:px-8 h-16 flex items-center justify-between">
       <div className="flex items-center gap-8">
-        <Link
-          to="/"
-          className="flex items-center gap-2 group cursor-pointer no-underline"
-        >
+        <Link to="/" className="flex items-center gap-2 group cursor-pointer no-underline">
           <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200 transition-transform group-hover:scale-105">
             <span className="text-white font-black text-xl italic">f</span>
           </div>
@@ -131,27 +161,24 @@ const Header: React.FC = () => {
           </span>
         </Link>
 
-        {/* Search Bar */}
         <div className="hidden lg:flex items-center bg-slate-100/80 px-4 py-2 rounded-2xl gap-3 w-80 border border-transparent focus-within:border-blue-400 focus-within:bg-white transition-all duration-300">
           <Search
             size={18}
             className="text-slate-400 cursor-pointer hover:text-blue-500"
-            onClick={handleSearch} // Click vào icon kính lúp cũng search được
+            onClick={handleSearch}
           />
           <input
             type="text"
-            placeholder="Tìm kiếm mọi thứ..."
+            placeholder="Tim kiem moi thu..."
             className="bg-transparent border-none outline-none text-sm w-full placeholder:text-slate-400"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={handleKeyDown} // Bắt sự kiện nhấn Enter
+            onKeyDown={handleKeyDown}
           />
         </div>
       </div>
 
-      {/* Right side: Actions & User Dropdown */}
       <div className="flex items-center gap-2 md:gap-4">
-        {/* ... (Phần buttons Actions giữ nguyên) */}
         <div className="flex items-center gap-1 md:gap-2 pr-2 border-r border-slate-200">
           <button className="p-2.5 hover:bg-slate-100 rounded-full transition-colors text-slate-600 active:scale-90">
             <PlusCircle size={20} />
@@ -160,50 +187,74 @@ const Header: React.FC = () => {
             <MessageCircle size={20} />
             <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
           </button>
+
           <div className="relative" ref={notiDropdownRef}>
-            <button 
+            <button
               onClick={toggleNotifications}
               className="relative p-2.5 hover:bg-slate-100 rounded-full transition-colors text-slate-600 active:scale-90"
             >
               <Bell size={20} />
               {notificationCount > 0 && (
-                <span className="absolute top-2 right-2.5 w-4 h-4 bg-blue-600 text-[10px] text-white flex items-center justify-center rounded-full border-2 border-white font-bold">
+                <span className="absolute top-2 right-2.5 min-w-4 h-4 px-1 bg-blue-600 text-[10px] text-white flex items-center justify-center rounded-full border-2 border-white font-bold">
                   {notificationCount}
                 </span>
               )}
             </button>
-            
-            {/* Notification Dropdown */}
+
             {isNotiOpen && (
               <div className="absolute right-0 mt-3 w-80 bg-white/95 backdrop-blur-md rounded-2xl shadow-[0_20px_50px_rgba(8,_112,_184,_0.1)] border border-slate-100 p-2 animate-in fade-in zoom-in slide-in-from-top-2 duration-200 origin-top-right z-50">
                 <div className="px-4 py-3 border-b border-slate-50 mb-1 flex justify-between items-center">
-                  <p className="text-sm font-bold text-slate-700">Thông báo</p>
+                  <p className="text-sm font-bold text-slate-700">Thong bao</p>
                 </div>
                 <div className="max-h-80 overflow-y-auto">
                   {notifications.length === 0 ? (
-                    <div className="p-4 text-center text-slate-500 text-sm">Không có thông báo nào</div>
+                    <div className="p-4 text-center text-slate-500 text-sm">Khong co thong bao nao</div>
                   ) : (
-                    notifications.map((notif: any, index: number) => (
-                      <div key={index} className={`flex items-start gap-3 p-3 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer ${!notif.isRead ? 'bg-blue-50/50' : ''}`}>
+                    notifications.map((notification) => (
+                      <div
+                        key={notification._id || `${notification.type}-${notification.createdAt}`}
+                        className={`flex items-start gap-3 p-3 hover:bg-slate-50 rounded-xl transition-colors ${!notification.isRead ? "bg-blue-50/50" : ""}`}
+                      >
                         <div className="w-10 h-10 rounded-full overflow-hidden shrink-0">
-                          <img src={notif.sender?.avatarUrl ? (notif.sender.avatarUrl.startsWith('http') ? notif.sender.avatarUrl : `${import.meta.env.VITE_API_MINIO}/${notif.sender.avatarUrl}`) : `https://api.dicebear.com/7.x/avataaars/svg?seed=${notif.sender?.username}`} className="w-full h-full object-cover" alt="avatar" />
+                          <img
+                            src={resolveAvatarUrl(
+                              notification.sender?.avatarUrl,
+                              notification.sender?.username
+                            )}
+                            className="w-full h-full object-cover"
+                            alt="avatar"
+                          />
                         </div>
                         <div className="flex-1">
-                          <p className="text-sm text-slate-700">
-                            {notif.sender?.username ? (
-                              notif.sender?._id ? (
-                                <Link to={`/profile/${notif.sender._id}`} className="font-bold hover:text-blue-600 transition-colors">
-                                  {notif.sender.username}
-                                </Link>
-                              ) : (
-                                <span className="font-bold">{notif.sender.username}</span>
-                              )
+                          <p className="text-sm text-slate-700 leading-6">
+                            {notification.sender?._id ? (
+                              <Link
+                                to={`/profile/${notification.sender._id}`}
+                                className="font-bold hover:text-blue-600 transition-colors"
+                              >
+                                {notification.sender.username || "Ai do"}
+                              </Link>
                             ) : (
-                              <span className="font-bold">Ai đó</span>
-                            )}{' '}
-                            {notif.type === 'follow' ? 'đã bắt đầu theo dõi bạn.' : 'đã tương tác với bạn.'}
+                              <span className="font-bold">
+                                {notification.sender?.username || "Ai do"}
+                              </span>
+                            )}{" "}
+                            <span>
+                              {notification.type === "follow" && "da bat dau theo doi ban."}
+                              {notification.type === "like" && "da thich bai viet cua ban."}
+                              {notification.type === "comment" && "da binh luan ve bai viet cua ban."}
+                            </span>
                           </p>
-                          <p className="text-xs text-slate-400 mt-1">{notif.createdAt ? new Date(notif.createdAt).toLocaleString('vi-VN') : 'Vừa xong'}</p>
+                          {notification.post?.content && notification.type !== "follow" && (
+                            <p className="text-xs text-slate-500 mt-1 line-clamp-2">
+                              "{notification.post.content}"
+                            </p>
+                          )}
+                          <p className="text-xs text-slate-400 mt-1">
+                            {notification.createdAt
+                              ? new Date(notification.createdAt).toLocaleString("vi-VN")
+                              : "Vua xong"}
+                          </p>
                         </div>
                       </div>
                     ))
@@ -221,20 +272,14 @@ const Header: React.FC = () => {
               className="flex items-center gap-3 p-1.5 pl-3 hover:bg-white hover:shadow-md rounded-2xl transition-all duration-200 border border-transparent hover:border-slate-100"
             >
               <div className="hidden md:block text-right">
-                <p className="text-xs font-bold text-slate-900 leading-tight">
-                  {user.username}
-                </p>
+                <p className="text-xs font-bold text-slate-900 leading-tight">{user.username}</p>
                 <p className="text-[10px] text-blue-600 font-semibold uppercase tracking-wider">
                   MEMBER
                 </p>
               </div>
               <div className="w-10 h-10 rounded-xl overflow-hidden ring-2 ring-blue-50 transition-transform active:scale-95">
                 <img
-                  src={
-                    user.avatar
-                      ? `${import.meta.env.VITE_API_MINIO}/${user.avatar}`
-                      : `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`
-                  }
+                  src={resolveAvatarUrl(user.avatarUrl || user.avatar, user.username)}
                   className="w-full h-full object-cover"
                   alt="User Avatar"
                 />
@@ -245,29 +290,17 @@ const Header: React.FC = () => {
               />
             </button>
 
-            {/* Dropdown Menu */}
             {isOpen && (
               <div className="absolute right-0 mt-3 w-64 bg-white/95 backdrop-blur-md rounded-2xl shadow-[0_20px_50px_rgba(8,_112,_184,_0.1)] border border-slate-100 p-2 animate-in fade-in zoom-in slide-in-from-top-2 duration-200 origin-top-right">
-                {/* ... (Phần nội dung Dropdown giữ nguyên) */}
                 <div className="px-4 py-3 border-b border-slate-50 mb-1">
                   <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest">
-                    Tài khoản cá nhân
+                    Tai khoan ca nhan
                   </p>
-                  <p className="text-sm font-semibold text-slate-700 truncate">
-                    {user.email}
-                  </p>
+                  <p className="text-sm font-semibold text-slate-700 truncate">{user.email}</p>
                 </div>
 
-                <DropDownItem
-                  to="/profile"
-                  icon={<User size={18} />}
-                  label="Hồ sơ của tôi"
-                />
-                <DropDownItem
-                  to="/settings"
-                  icon={<Settings size={18} />}
-                  label="Cài đặt"
-                />
+                <DropDownItem to="/profile" icon={<User size={18} />} label="Ho so cua toi" />
+                <DropDownItem to="/settings" icon={<Settings size={18} />} label="Cai dat" />
 
                 <div className="h-px bg-slate-50 my-1" />
 
@@ -278,7 +311,7 @@ const Header: React.FC = () => {
                   <div className="p-1.5 rounded-lg bg-rose-50 group-hover:bg-rose-100 transition-colors">
                     <LogOut size={16} />
                   </div>
-                  <span className="font-bold">Đăng xuất</span>
+                  <span className="font-bold">Dang xuat</span>
                 </button>
               </div>
             )}
@@ -288,7 +321,7 @@ const Header: React.FC = () => {
             to="/login"
             className="px-6 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-200 transition-all active:scale-95"
           >
-            Đăng nhập
+            Dang nhap
           </Link>
         )}
       </div>
@@ -296,7 +329,6 @@ const Header: React.FC = () => {
   );
 };
 
-// ... (DropDownItem Component giữ nguyên)
 const DropDownItem: React.FC<{
   to: string;
   icon: React.ReactNode;

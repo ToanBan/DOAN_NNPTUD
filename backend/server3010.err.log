@@ -1,0 +1,172 @@
+C:\Users\ACER\OneDrive\Máy tính\DOAN NodeJS\DOAN_NNPTUD\backend\node_modules\mongoose\lib\connection.js:1168
+    err = new ServerSelectionError();
+          ^
+
+MongooseServerSelectionError: Server selection timed out after 30000 ms
+    at _handleConnectionErrors (C:\Users\ACER\OneDrive\Máy tính\DOAN NodeJS\DOAN_NNPTUD\backend\node_modules\mongoose\lib\connection.js:1168:11)
+    at NativeConnection.openUri (C:\Users\ACER\OneDrive\Máy tính\DOAN NodeJS\DOAN_NNPTUD\backend\node_modules\mongoose\lib\connection.js:1099:11) {
+  errorLabelSet: Set(0) {},
+  reason: TopologyDescription {
+    type: 'ReplicaSetNoPrimary',
+    servers: Map(2) {
+      'mongo1:27017' => ServerDescription {
+        address: 'mongo1:27017',
+        type: 'RSSecondary',
+        hosts: [ 'mongo1:27017', 'mongo2:27017', 'mongo3:27017' ],
+        passives: [],
+        arbiters: [],
+        tags: {},
+        minWireVersion: 0,
+        maxWireVersion: 17,
+        roundTripTime: 5.333333333333333,
+        minRoundTripTime: 3,
+        lastUpdateTime: 24616,
+        lastWriteDate: 2026-04-01T12:03:34.000Z,
+        error: null,
+        topologyVersion: {
+          processId: ObjectId { buffer: [Buffer [Uint8Array]] },
+          counter: 4
+        },
+        setName: 'rs0',
+        setVersion: 1,
+        electionId: null,
+        logicalSessionTimeoutMinutes: 30,
+        maxMessageSizeBytes: 48000000,
+        maxWriteBatchSize: 100000,
+        maxBsonObjectSize: 16777216,
+        primary: 'mongo2:27017',
+        me: 'mongo1:27017',
+        '$clusterTime': {
+          clusterTime: Timestamp { high: 1775045014, low: 1, unsigned: true },
+          signature: { hash: [Binary], keyId: 0 }
+        },
+        iscryptd: false
+      },
+      'mongo2:27017' => ServerDescription {
+        address: 'mongo2:27017',
+        type: 'Unknown',
+        hosts: [],
+        passives: [],
+        arbiters: [],
+        tags: {},
+        minWireVersion: 0,
+        maxWireVersion: 0,
+        roundTripTime: -1,
+        minRoundTripTime: 0,
+        lastUpdateTime: 32782,
+        lastWriteDate: 0,
+        error: null,
+        topologyVersion: null,
+        setName: null,
+        setVersion: null,
+        electionId: null,
+        logicalSessionTimeoutMinutes: null,
+        maxMessageSizeBytes: null,
+        maxWriteBatchSize: null,
+        maxBsonObjectSize: null,
+        primary: null,
+        me: null,
+        '$clusterTime': null,
+        iscryptd: false
+      }
+    },
+    stale: false,
+    compatible: true,
+    heartbeatFrequencyMS: 10000,
+    localThresholdMS: 15,
+    setName: 'rs0',
+    maxElectionId: ObjectId {
+      buffer: Buffer(12) [Uint8Array] [
+        127, 255, 255, 255, 0,
+          0,   0,   0,   0, 0,
+          0,   3
+      ]
+    },
+    maxSetVersion: 1,
+    commonWireVersion: 17,
+    logicalSessionTimeoutMinutes: 30
+  },
+  code: undefined,
+  cause: TopologyDescription {
+    type: 'ReplicaSetNoPrimary',
+    servers: Map(2) {
+      'mongo1:27017' => ServerDescription {
+        address: 'mongo1:27017',
+        type: 'RSSecondary',
+        hosts: [ 'mongo1:27017', 'mongo2:27017', 'mongo3:27017' ],
+        passives: [],
+        arbiters: [],
+        tags: {},
+        minWireVersion: 0,
+        maxWireVersion: 17,
+        roundTripTime: 5.333333333333333,
+        minRoundTripTime: 3,
+        lastUpdateTime: 24616,
+        lastWriteDate: 2026-04-01T12:03:34.000Z,
+        error: null,
+        topologyVersion: {
+          processId: ObjectId { buffer: [Buffer [Uint8Array]] },
+          counter: 4
+        },
+        setName: 'rs0',
+        setVersion: 1,
+        electionId: null,
+        logicalSessionTimeoutMinutes: 30,
+        maxMessageSizeBytes: 48000000,
+        maxWriteBatchSize: 100000,
+        maxBsonObjectSize: 16777216,
+        primary: 'mongo2:27017',
+        me: 'mongo1:27017',
+        '$clusterTime': {
+          clusterTime: Timestamp { high: 1775045014, low: 1, unsigned: true },
+          signature: { hash: [Binary], keyId: 0 }
+        },
+        iscryptd: false
+      },
+      'mongo2:27017' => ServerDescription {
+        address: 'mongo2:27017',
+        type: 'Unknown',
+        hosts: [],
+        passives: [],
+        arbiters: [],
+        tags: {},
+        minWireVersion: 0,
+        maxWireVersion: 0,
+        roundTripTime: -1,
+        minRoundTripTime: 0,
+        lastUpdateTime: 32782,
+        lastWriteDate: 0,
+        error: null,
+        topologyVersion: null,
+        setName: null,
+        setVersion: null,
+        electionId: null,
+        logicalSessionTimeoutMinutes: null,
+        maxMessageSizeBytes: null,
+        maxWriteBatchSize: null,
+        maxBsonObjectSize: null,
+        primary: null,
+        me: null,
+        '$clusterTime': null,
+        iscryptd: false
+      }
+    },
+    stale: false,
+    compatible: true,
+    heartbeatFrequencyMS: 10000,
+    localThresholdMS: 15,
+    setName: 'rs0',
+    maxElectionId: ObjectId {
+      buffer: Buffer(12) [Uint8Array] [
+        127, 255, 255, 255, 0,
+          0,   0,   0,   0, 0,
+          0,   3
+      ]
+    },
+    maxSetVersion: 1,
+    commonWireVersion: 17,
+    logicalSessionTimeoutMinutes: 30
+  }
+}
+
+Node.js v22.16.0
