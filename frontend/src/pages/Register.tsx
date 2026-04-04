@@ -14,6 +14,7 @@ import { FcGoogle } from "react-icons/fc";
 import handleRegister from "../api/user/handleRegister";
 import AlertSuccess from "../components/AlertSuccess";
 import AlertError from "../components/AlertError";
+import { API_URL } from "../lib/config";
 
 const Register: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -283,7 +284,7 @@ const Register: React.FC = () => {
 
             <div className="mt-6">
               <button
-                onClick={() => { window.location.href = `${import.meta.env.VITE_API_URL}/api/auth/google`; }}
+                onClick={() => { window.location.href = `${API_URL}/api/auth/google`; }}
                 className="w-full flex items-center justify-center gap-3 py-3 border border-slate-200 rounded-2xl hover:bg-slate-50 transition-all font-bold text-slate-700 text-sm"
               >
                 <FcGoogle size={18} /> Google

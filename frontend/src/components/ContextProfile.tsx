@@ -26,7 +26,13 @@ import handleAddForum from "../api/forum/handleAddForum";
 import AlertSuccess from "./AlertSuccess";
 import AlertError from "./AlertError";
 import { useUser } from "../context/authContext";
+<<<<<<< HEAD
 import getMyForum from "../api/forum/getMyForum";
+=======
+import { API_URL } from "../lib/config";
+
+// --- Interfaces ---
+>>>>>>> b39890b (final)
 interface Post {
   postId: string;
   content: string;
@@ -89,7 +95,7 @@ const ContextProfile: React.FC<ContextProfileProps> = ({
   const resolveAssetUrl = (url?: string) => {
     if (!url) return "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix";
     if (/^https?:\/\//i.test(url)) return url;
-    return `${import.meta.env.VITE_API_URL}/${url}`;
+    return `${API_URL}/${url}`;
   };
 
   const formatTimeAgo = (value?: string) => {
