@@ -13,6 +13,7 @@ var usersRouter = require('./routes/users');
 var postRouter = require("./routes/post");
 var chatmessageRouter = require("./routes/chatmessage");
 var forumRouter = require("./routes/forum");
+var adminRouter = require('./routes/admin');
 var reportRouter = require("./routes/report");
 var app = express(); 
 app.use(cors({
@@ -30,6 +31,7 @@ app.use('/api/users', usersRouter);
 app.use("/api/posts", postRouter);
 app.use("/api/chatmessages", chatmessageRouter);
 app.use("/api/forums", forumRouter);
+app.use('/api/admin', adminRouter);
 app.use("/api/reports", reportRouter);
 mongoose.connect(
   process.env.MONGO_URI || "mongodb://127.0.0.1:27017/DOAN_NNPTUD"

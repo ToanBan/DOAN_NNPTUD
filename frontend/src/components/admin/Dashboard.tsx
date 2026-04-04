@@ -11,26 +11,33 @@ import {
   ArrowUpRight,
   ArrowDownRight,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
+import api from "../../lib/axios";
 
 interface Stats {
   totalUsers: number;
   totalPosts: number;
+  totalForums?: number;
   totalInteractions: number;
   avgInteractionsPerPost: number;
 }
 
 interface Post {
+  _id: string;
   id: number;
   fileUrl: string;
   content: string;
   createdAt: string;
   type: string;
   user: {
+    _id: string;
     id: number;
     avatar: string;
     username: string;
   };
+  likeCount?: number;
+  commentCount?: number;
+  shareCount?: number;
 }
 
 const StatCard = ({ title, value, change, icon, trend }: any) => (
@@ -67,16 +74,25 @@ const Dashboard = ({ contextstats }: { contextstats: Stats | null }) => {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [stats, setStats] = useState(contextstats || null);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
 
-  console.log(stats);
+  useEffect(() => {
+    const fetchDashboardStats = async () => {
+      try {
+        const response = await api.get('/api/admin/dashboard');
+        setStats(response.data.stats);
+        setPosts(response.data.newestPosts);
+        setUsers(response.data.newestUsers);
+      } catch (error) {
+        console.error("Failed to fetch dashboard stats:", error);
+      }
+    };
+    fetchDashboardStats();
+  }, []);
 
   const isVideo = (url: string) => {
     return /\.(mp4|webm|mov|mkv)$/i.test(url);
-  };
-
-
-
-  const statsData = stats
+  };  const statsData = stats
     ? [
         {
           title: "Người dùng",
@@ -89,6 +105,13 @@ const Dashboard = ({ contextstats }: { contextstats: Stats | null }) => {
           title: "Bài viết",
           value: stats.totalPosts,
           change: 8,
+          icon: <MessageSquare className="w-6 h-6 text-indigo-600" />,
+          trend: "up" as const,
+        },
+        {
+          title: "Diễn đàn",
+          value: stats.totalForums ?? 0,
+          change: 5,
           icon: <MessageSquare className="w-6 h-6 text-indigo-600" />,
           trend: "up" as const,
         },
@@ -179,9 +202,9 @@ const Dashboard = ({ contextstats }: { contextstats: Stats | null }) => {
             ))}
           </div>
 
-          {/* Recent Posts */}
+          {/* Recent Posts & Recent Users */}
 
-          <div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
               <div className="bg-white rounded-2xl border border-slate-100 shadow-sm">
                 <div className="p-6 border-b border-slate-100 flex items-center justify-between">
@@ -202,7 +225,7 @@ const Dashboard = ({ contextstats }: { contextstats: Stats | null }) => {
 
                     return (
                       <div
-                        key={post.id}
+                        key={post._id || post.id}
                         className="p-6 hover:bg-slate-50 transition-colors"
                       >
                         <div className="flex space-x-4">
@@ -270,21 +293,21 @@ const Dashboard = ({ contextstats }: { contextstats: Stats | null }) => {
                                 <div className="flex items-center space-x-1">
                                   <Heart size={18} />
                                   <span className="text-xs font-medium">
-                                    32
+                                    {post.likeCount || 0}
                                   </span>
                                 </div>
 
                                 <div className="flex items-center space-x-1">
                                   <MessageSquare size={18} />
                                   <span className="text-xs font-medium">
-                                    322
+                                    {post.commentCount || 0}
                                   </span>
                                 </div>
 
                                 <div className="flex items-center space-x-1">
                                   <Share2 size={18} />
                                   <span className="text-xs font-medium">
-                                    32
+                                    {post.shareCount || 0}
                                   </span>
                                 </div>
                               </div>
@@ -294,6 +317,42 @@ const Dashboard = ({ contextstats }: { contextstats: Stats | null }) => {
                       </div>
                     );
                   })}
+                </div>
+              </div>
+            </div>
+
+            {/* Newest Users */}
+            <div className="space-y-6">
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                  <h2 className="text-lg font-bold text-slate-800">
+                    Người dùng mới đăng ký
+                  </h2>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {users.map((user: any, idx: number) => (
+                    <div
+                      key={user._id || idx}
+                      className="p-6 hover:bg-slate-50 transition-colors flex items-center space-x-4"
+                    >
+                      <img
+                        src={
+                          user.avatarUrl ||
+                          `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`
+                        }
+                        alt={user.username}
+                        className="w-12 h-12 rounded-full bg-slate-100 border border-slate-200"
+                      />
+                      <div>
+                        <p className="text-sm font-bold text-slate-800">
+                          {user.username}
+                        </p>
+                        <p className="text-xs text-slate-500 font-medium">
+                          {user.email || user.fullName}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
