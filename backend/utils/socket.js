@@ -115,6 +115,14 @@ module.exports = {
         }
       });
 
+      socket.on("join_post", (postId) => {
+        socket.join(`post:${postId}`);
+      });
+
+      socket.on("leave_post", (postId) => {
+        socket.leave(`post:${postId}`);
+      });
+
       socket.on("disconnect", () => {
         console.log("Disconnected:", socket.id);
       });
