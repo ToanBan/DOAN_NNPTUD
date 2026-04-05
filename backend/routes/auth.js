@@ -1,0 +1,46 @@
+var express = require("express");
+var router = express.Router();
+
+let {
+  register,
+  login,
+  refreshToken,
+  getInfoUser,
+  logout,
+  googleCallback,
+  forgotPassword,
+  resetPassword,
+  verifyOtp,
+  editProfile,
+  changePassword
+} = require("../controllers/auth");
+let passport = require("passport");
+let { verifyAccessToken, verifyRefreshToken} = require("../middleware/auth");
+const uploadFile = require("../middleware/upload");
+const {
+  RegisterValidator,
+  handleValidationErrors,
+} = require("../utils/validatorHandler");
+
+router.post("/register", RegisterValidator, handleValidationErrors, register);
+router.post("/login", login);
+
+router.post("/refresh-token", verifyRefreshToken, refreshToken);
+router.get("/me", verifyAccessToken, getInfoUser);
+router.post("/logout", verifyAccessToken, logout);
+router.post("/forgotpassword", forgotPassword);
+router.post("/resetpassword", resetPassword);
+router.post("/verifyotp", verifyOtp);
+router.post("/editprofile", verifyAccessToken, uploadFile("avatars").single("avatar"), editProfile);
+router.post("/changepassword", verifyAccessToken, changePassword);
+router.get(
+  "/google",
+  passport.authenticate("google", { scope: ["profile", "email"] }),
+);
+
+router.get(
+  "/google/callback",
+  passport.authenticate("google", { session: false }),
+  googleCallback,
+);
+module.exports = router;

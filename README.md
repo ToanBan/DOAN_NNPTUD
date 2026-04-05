@@ -1,0 +1,665 @@
+# Setup MongoDB Replica Set với Docker
+
+## Giới thiệu
+
+Tài liệu này hướng dẫn cách thiết lập **MongoDB Replica Set (3 node)** bằng Docker để phục vụ phát triển ứng dụng Node.js.
+
+Replica Set giúp:
+
+* Hỗ trợ **transaction**
+* Tăng độ **ổn định (failover)**
+* Mô phỏng môi trường production
+
+---
+
+
+
+## Khởi chạy Docker
+
+```bash
+docker-compose up -d
+```
+
+---
+
+## Khởi tạo Replica Set
+
+### Bước 1: Truy cập container `mongo1`
+
+```bash
+docker exec -it mongo1 mongosh
+```
+
+---
+
+### Bước 2: Khởi tạo Replica Set
+
+```js
+rs.initiate({
+  _id: "rs0",
+  members: [
+    { _id: 0, host: "mongo1:27017" },
+    { _id: 1, host: "mongo2:27017" },
+    { _id: 2, host: "mongo3:27017" }
+  ]
+})
+```
+
+---
+
+### Bước 3: Kiểm tra trạng thái
+
+```js
+rs.status()
+```
+
+👉 Nếu thấy:
+
+* `PRIMARY`
+* `SECONDARY`
+
+→ Setup thành công 
+
+---
+
+## 🔗 5. Kết nối MongoDB trong Node.js
+
+```js
+mongoose.connect(
+  "mongodb://127.0.0.1:27017,127.0.0.1:27018,127.0.0.1:27019/DOAN_NNPTUD?replicaSet=rs0"
+);
+```
+
+---
+
+## Lưu ý
+
+### Nếu chạy Node.js trong Docker:
+
+```js
+mongoose.connect(
+  "mongodb://mongo1:27017,mongo2:27017,mongo3:27017/DOAN_NNPTUD?replicaSet=rs0"
+);
+```
+
+---
+
+## Xử lý lỗi thường gặp
+
+### Lỗi container đã tồn tại
+
+```bash
+docker rm -f mongo1 mongo2 mongo3
+```
+
+---
+
+### Docker chưa chạy
+
+* Mở **Docker Desktop**
+* Đảm bảo trạng thái: `Docker is running`
+
+---
+
+### Không kết nối được Replica Set
+
+* Kiểm tra đã chạy `rs.initiate()` chưa
+* Kiểm tra `rs.status()`
+
+---
+
+## Kiểm tra container
+
+```bash
+docker ps
+```
+
+---
+
+## Dọn dẹp
+
+### Xóa toàn bộ container
+
+```bash
+docker rm -f mongo1 mongo2 mongo3
+```
+
+---
+
+## Kết luận
+
+* MongoDB Replica Set đã sẵn sàng
+* Có thể sử dụng:
+
+  * Transaction
+  * Failover
+  * Testing môi trường thực tế
+
+---
+
+## Gợi ý phát triển tiếp
+
+* Kết nối với **Mongoose**
+* Sử dụng **transaction**
+* Xây dựng hệ thống **authentication (JWT)**
+* Tích hợp **file storage (MinIO)**
+
+---
+
+💡 *Tip: Không nên dùng `localhost:27017` khi đã setup Replica Set — hãy luôn dùng connection string đầy đủ để tận dụng hệ thống.*
+
+
+
+
+# 📦 Database Schemas (MongoDB - Mongoose)
+
+> Ý tưởng: Thiết kế hệ thống database cho mạng xã hội với các chức năng như đăng bài, tương tác, theo dõi, nhắn tin và diễn đàn.
+
+---
+
+## 1. roles.js
+
+```js
+const mongoose = require("mongoose");
+
+const roleSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, unique: true },
+    description: { type: String, default: "" },
+    isDeleted: { type: Boolean, default: false }
+  },
+  { timestamps: true }
+);
+
+module.exports = mongoose.model("role", roleSchema);
+```
+
+---
+
+## 2. users.js
+
+```js
+const mongoose = require("mongoose");
+const bcrypt = require("bcrypt");
+
+const userSchema = new mongoose.Schema(
+  {
+    username: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+    email: { type: String, required: true, unique: true, lowercase: true },
+
+    fullName: { type: String, default: "" },
+    phone: { type: String, default: "" },
+    description: { type: String, default: "", maxlength: 500 },
+    address: { type: String, default: "" },
+    avatarUrl: {
+      type: String,
+      default: "https://i.sstatic.net/l60Hf.png"
+    },
+
+    status: { type: Boolean, default: false },
+
+    role: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "role",
+      required: true
+    },
+
+    loginCount: { type: Number, default: 0, min: 0 },
+    lockTime: Date,
+
+    isDeleted: { type: Boolean, default: false },
+
+    resetOtp: String,
+    resetToken: String,
+    resetExpire: Date
+  },
+  { timestamps: true }
+);
+
+userSchema.pre("save", function (next) {
+  if (this.isModified("password")) {
+    const salt = bcrypt.genSaltSync(10);
+    this.password = bcrypt.hashSync(this.password, salt);
+  }
+  next();
+});
+
+userSchema.pre("findOneAndUpdate", function (next) {
+  const update = this.getUpdate();
+  if (update.password) {
+    const salt = bcrypt.genSaltSync(10);
+    update.password = bcrypt.hashSync(update.password, salt);
+    this.setUpdate(update);
+  }
+  next();
+});
+
+module.exports = mongoose.model("user", userSchema);
+```
+
+---
+
+## 3. post.js
+
+```js
+const mongoose = require("mongoose");
+
+const postSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user",
+      required: true
+    },
+
+    content: { type: String, default: "" },
+
+    privacy: {
+      type: String,
+      enum: ["public", "private", "friends"],
+      default: "public"
+    },
+
+    likeCount: { type: Number, default: 0 },
+    commentCount: { type: Number, default: 0 },
+    fileCount: { type: Number, default: 0 },
+    shareCount: { type: Number, default: 0 },
+
+    sharedPost: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "post",
+      default: null
+    },
+
+    forum: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "forum",
+      default: null
+    },
+
+    isDeleted: { type: Boolean, default: false },
+    isHidden: { type: Boolean, default: false },
+    hiddenReason: String,
+    hiddenBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user"
+    }
+  },
+  { timestamps: true }
+);
+
+module.exports = mongoose.model("post", postSchema);
+```
+
+---
+
+## 4. post_file.js
+
+```js
+const mongoose = require("mongoose");
+
+const postFileSchema = new mongoose.Schema(
+  {
+    post: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "post",
+      required: true
+    },
+
+    fileUrl: { type: String, required: true },
+
+    fileType: {
+      type: String,
+      enum: ["image", "video", "file"],
+      required: true
+    },
+
+    fileName: String,
+    fileSize: Number,
+
+    isDeleted: { type: Boolean, default: false }
+  },
+  { timestamps: true }
+);
+
+module.exports = mongoose.model("post_file", postFileSchema);
+```
+
+---
+
+## 5. comment.js
+
+```js
+const mongoose = require("mongoose");
+
+const commentSchema = new mongoose.Schema(
+  {
+    post: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "post",
+      required: true
+    },
+
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user",
+      required: true
+    },
+
+    content: { type: String, required: true },
+
+    parentComment: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "comment",
+      default: null
+    },
+
+    isDeleted: { type: Boolean, default: false }
+  },
+  { timestamps: true }
+);
+
+module.exports = mongoose.model("comment", commentSchema);
+```
+
+---
+
+## 6. like.js
+
+```js
+const mongoose = require("mongoose");
+
+const likeSchema = new mongoose.Schema(
+  {
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "user" },
+    post: { type: mongoose.Schema.Types.ObjectId, ref: "post" }
+  },
+  { timestamps: true }
+);
+
+// Unique compound index to prevent duplicate likes
+likeSchema.index({ user: 1, post: 1 }, { unique: true });
+
+module.exports = mongoose.model("like", likeSchema);
+```
+
+---
+
+## 7. follow.js
+
+```js
+const mongoose = require("mongoose");
+
+const followSchema = new mongoose.Schema(
+  {
+    follower: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user"
+    },
+
+    following: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user"
+    }
+  },
+  { timestamps: true }
+);
+
+module.exports = mongoose.model("follow", followSchema);
+```
+
+---
+
+
+## 8. notification.model.js
+
+```js
+const mongoose = require("mongoose");
+
+const notificationSchema = new mongoose.Schema(
+  {
+    sender: { type: mongoose.Schema.Types.ObjectId, ref: "user" },
+    receiver: { type: mongoose.Schema.Types.ObjectId, ref: "user" },
+
+    type: {
+      type: String,
+      enum: ["like", "comment", "follow", "chat_message"]
+    },
+
+    post: { type: mongoose.Schema.Types.ObjectId, ref: "post" },
+
+    isRead: { type: Boolean, default: false }
+  },
+  { timestamps: true }
+);
+
+module.exports = mongoose.model("notification", notificationSchema);
+```
+
+---
+
+## 9. report.js
+
+```js
+const mongoose = require("mongoose");
+
+const reportSchema = new mongoose.Schema(
+  {
+    reporter: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user",
+      required: true
+    },
+    post: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "post",
+      required: true
+    },
+    reportedUser: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user"
+    },
+
+    reason: {
+      type: String,
+      enum: [
+        "spam",
+        "inappropriate_content",
+        "harassment",
+        "misinformation",
+        "copyright_violation",
+        "hate_speech",
+        "violence",
+        "self_harm",
+        "other"
+      ],
+      required: true
+    },
+
+    description: String,
+
+    status: {
+      type: String,
+      enum: ["pending", "resolved", "rejected"],
+      default: "pending"
+    },
+
+    adminNote: String
+  },
+  { timestamps: true }
+);
+
+module.exports = mongoose.model("report", reportSchema);
+```
+
+---
+
+## 10. forum.js
+
+```js
+const mongoose = require("mongoose");
+
+const forumSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: [true, "Forum name is required"],
+      trim: true
+    },
+    description: {
+      type: String,
+      default: "",
+      maxlength: 1000
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user",
+      required: true
+    },
+    isDeleted: { type: Boolean, default: false }
+  },
+  { timestamps: true }
+);
+
+module.exports = mongoose.model("forum", forumSchema);
+```
+
+---
+
+## 11. forum_member.js
+
+```js
+const mongoose = require("mongoose");
+
+const forumMemberSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user",
+      required: true
+    },
+    forum: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "forum",
+      required: true
+    },
+    status: {
+      type: String,
+      enum: ["active", "banned", "pending"],
+      default: "active"
+    },
+    joinedAt: { type: Date, default: Date.now() }
+  },
+  { timestamps: true }
+);
+
+// Unique compound index to prevent duplicate memberships
+forumMemberSchema.index({ user: 1, forum: 1 }, { unique: true });
+
+module.exports = mongoose.model("forum_member", forumMemberSchema);
+```
+
+---
+
+## 12. forum_post.js
+
+```js
+const mongoose = require("mongoose");
+
+const forumPostSchema = new mongoose.Schema(
+  {
+    forum: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "forum",
+      required: true
+    },
+    author: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user",
+      required: true
+    },
+    content: { type: String, default: "" },
+    images: [{ type: String }],
+    videos: [{ type: String }],
+    isDeleted: { type: Boolean, default: false }
+  },
+  { timestamps: true }
+);
+
+module.exports = mongoose.model("forum_post", forumPostSchema);
+```
+
+---
+
+## 13. chatmessage.js
+
+```js
+const mongoose = require("mongoose");
+
+const chatMessageSchema = new mongoose.Schema(
+  {
+    sender: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user",
+      required: true
+    },
+
+    receiver: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user",
+      required: true
+    },
+
+    content: {
+      type: String,
+      default: ""
+    },
+
+    isRead: {
+      type: Boolean,
+      default: false
+    },
+
+    isDeleted: {
+      type: Boolean,
+      default: false
+    }
+  },
+  { timestamps: true }
+);
+
+module.exports = mongoose.model("chat_message", chatMessageSchema);
+```
+
+---
+
+## 14. message_file.js
+
+```js
+const mongoose = require("mongoose");
+
+const messageFileSchema = new mongoose.Schema(
+  {
+    message: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "chat_message",
+      required: true
+    },
+
+    fileUrl: { type: String, required: true },
+
+    fileType: {
+      type: String,
+      enum: ["image", "video", "file"],
+      required: true
+    },
+
+    fileName: String,
+    fileSize: Number
+  },
+  { timestamps: true }
+);
+
+module.exports = mongoose.model("message_file", messageFileSchema);
+```
