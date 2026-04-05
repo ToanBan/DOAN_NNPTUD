@@ -149,6 +149,7 @@ const login = async (req, res, next) => {
         address: user.address,
         phone: user.phone,
         description: user.description,
+        avatar:user.avatarUrl
       },
     });
   } catch (error) {
@@ -307,6 +308,7 @@ const getInfoUser = async (req, res, next) => {
         address: user.address,
         phone: user.phone,
         description: user.description,
+        avatar: user.avatarUrl,
       },
     });
   } catch (error) {
@@ -377,23 +379,22 @@ const googleCallback = async (req, res) => {
 
 const editProfile = async (req, res, next) => {
   try {
-    const user = req.user; // Lấy từ middleware verifyAccessToken
+    const user = req.user; 
     const { phone, description, address, username } = req.body;
 
     const updateData = {};
 
-    // 1. Xử lý số điện thoại
     if (phone) {
       const cleanPhone = phone.trim().replace(/\s+/g, "");
       const isValidPhone = /^(0|\+84)[0-9]{9}$/.test(cleanPhone);
       if (!isValidPhone) {
-        if (req.file) fs.unlink(req.file.path, () => {}); // Xóa file vừa upload nếu lỗi
+        if (req.file) fs.unlink(req.file.path, () => {}); 
         return res.status(400).json({ message: "Số điện thoại không hợp lệ" });
       }
       updateData.phone = cleanPhone;
     }
 
-    // 2. Xử lý tiểu sử
+
     if (description !== undefined) {
       if (description.length > 500) {
         if (req.file) fs.unlink(req.file.path, () => {});
@@ -402,12 +403,10 @@ const editProfile = async (req, res, next) => {
       updateData.description = description.trim();
     }
 
-    // 3. Xử lý địa chỉ
     if (address !== undefined) {
       updateData.address = address.trim();
     }
 
-    // 4. Xử lý username (Kiểm tra trùng)
     if (username) {
       const trimmedUsername = username.trim();
       const existingUser = await User.findOne({

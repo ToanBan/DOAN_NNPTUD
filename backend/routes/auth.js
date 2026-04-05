@@ -31,7 +31,7 @@ router.post("/logout", verifyAccessToken, logout);
 router.post("/forgotpassword", forgotPassword);
 router.post("/resetpassword", resetPassword);
 router.post("/verifyotp", verifyOtp);
-router.post("/editprofile", verifyAccessToken, uploadFile("avatar").single("avatar"), editProfile);
+router.post("/editprofile", verifyAccessToken, uploadFile("avatars").single("avatar"), editProfile);
 router.post("/changepassword", verifyAccessToken, changePassword);
 router.get(
   "/google",

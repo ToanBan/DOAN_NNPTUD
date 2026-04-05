@@ -9,5 +9,5 @@ router.get('/dashboard', verifyAccessToken, verifyAdmin, adminController.getDash
 router.get('/users', verifyAccessToken, verifyAdmin, adminController.getUsersList);
 router.patch('/users/:userId/toggle-status', verifyAccessToken, verifyAdmin, adminController.toggleUserStatus);
 router.get('/posts', verifyAccessToken, verifyAdmin, adminController.getPostsList);
-
+router.get("/forums", verifyAccessToken, verifyAdmin, adminController.getForums);
 module.exports = router;

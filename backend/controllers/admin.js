@@ -1,6 +1,7 @@
 const User = require('../schemas/users');
 const Post = require('../schemas/post');
 const Forum = require('../schemas/forum');
+const ForumMember = require('../schemas/forum_member');
 const Notification = require('../schemas/notification');
 const PostFile = require('../schemas/post_file');
 
@@ -190,5 +191,41 @@ exports.getPostsList = async (req, res, next) => {
       err: error.toString(),
       stack: error.stack
     });
+  }
+};
+
+
+exports.getForums = async (req, res, next) => {
+  try {
+    const forums = await Forum.find({ isDeleted: false })
+      .populate("createdBy", "username avatarUrl")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const result = await Promise.all(
+      forums.map(async (forum) => {
+        const memberCount = await ForumMember.countDocuments({
+          forum: forum._id,
+          status: "active",
+        });
+
+        return {
+          forumId: forum._id,
+          name: forum.name,
+          description: forum.description,
+          createdBy: {
+            userId: forum.createdBy?._id,
+            username: forum.createdBy?.username || "Unknown",
+            avatar: forum.createdBy?.avatarUrl || "",
+          },
+          memberCount,
+          createdAt: forum.createdAt,
+        };
+      }),
+    );
+
+    return res.json({ message: "Get forums success", forums: result });
+  } catch (error) {
+    next(error);
   }
 };

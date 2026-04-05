@@ -153,11 +153,11 @@ docker rm -f mongo1 mongo2 mongo3
 
 # 📦 Database Schemas (MongoDB - Mongoose)
 
-> Ý tưởng: Thiết kế hệ thống database cho mạng xã hội với các chức năng như đăng bài, tương tác, theo dõi và nhắn tin.
+> Ý tưởng: Thiết kế hệ thống database cho mạng xã hội với các chức năng như đăng bài, tương tác, theo dõi, nhắn tin và diễn đàn.
 
 ---
 
-## 1. role.model.js
+## 1. roles.js
 
 ```js
 const mongoose = require("mongoose");
@@ -176,19 +176,22 @@ module.exports = mongoose.model("role", roleSchema);
 
 ---
 
-## 2. user.model.js
+## 2. users.js
 
 ```js
 const mongoose = require("mongoose");
-let bcrypt = require("bcrypt");
+const bcrypt = require("bcrypt");
 
 const userSchema = new mongoose.Schema(
   {
     username: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
+    email: { type: String, required: true, unique: true, lowercase: true },
 
     fullName: { type: String, default: "" },
+    phone: { type: String, default: "" },
+    description: { type: String, default: "", maxlength: 500 },
+    address: { type: String, default: "" },
     avatarUrl: {
       type: String,
       default: "https://i.sstatic.net/l60Hf.png"
@@ -202,22 +205,34 @@ const userSchema = new mongoose.Schema(
       required: true
     },
 
-    loginCount: { type: Number, default: 0 },
+    loginCount: { type: Number, default: 0, min: 0 },
     lockTime: Date,
 
     isDeleted: { type: Boolean, default: false },
 
-    forgotPasswordToken: String,
-    forgotPasswordTokenExp: Date
+    resetOtp: String,
+    resetToken: String,
+    resetExpire: Date
   },
   { timestamps: true }
 );
 
-userSchema.pre("save", function () {
+userSchema.pre("save", function (next) {
   if (this.isModified("password")) {
-    let salt = bcrypt.genSaltSync(10);
+    const salt = bcrypt.genSaltSync(10);
     this.password = bcrypt.hashSync(this.password, salt);
   }
+  next();
+});
+
+userSchema.pre("findOneAndUpdate", function (next) {
+  const update = this.getUpdate();
+  if (update.password) {
+    const salt = bcrypt.genSaltSync(10);
+    update.password = bcrypt.hashSync(update.password, salt);
+    this.setUpdate(update);
+  }
+  next();
 });
 
 module.exports = mongoose.model("user", userSchema);
@@ -225,7 +240,7 @@ module.exports = mongoose.model("user", userSchema);
 
 ---
 
-## 3. post.model.js
+## 3. post.js
 
 ```js
 const mongoose = require("mongoose");
@@ -249,8 +264,27 @@ const postSchema = new mongoose.Schema(
     likeCount: { type: Number, default: 0 },
     commentCount: { type: Number, default: 0 },
     fileCount: { type: Number, default: 0 },
+    shareCount: { type: Number, default: 0 },
 
-    isDeleted: { type: Boolean, default: false }
+    sharedPost: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "post",
+      default: null
+    },
+
+    forum: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "forum",
+      default: null
+    },
+
+    isDeleted: { type: Boolean, default: false },
+    isHidden: { type: Boolean, default: false },
+    hiddenReason: String,
+    hiddenBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user"
+    }
   },
   { timestamps: true }
 );
@@ -260,7 +294,7 @@ module.exports = mongoose.model("post", postSchema);
 
 ---
 
-## 4. post_file.model.js
+## 4. post_file.js
 
 ```js
 const mongoose = require("mongoose");
@@ -294,7 +328,7 @@ module.exports = mongoose.model("post_file", postFileSchema);
 
 ---
 
-## 5. comment.model.js
+## 5. comment.js
 
 ```js
 const mongoose = require("mongoose");
@@ -331,7 +365,7 @@ module.exports = mongoose.model("comment", commentSchema);
 
 ---
 
-## 6. like.model.js
+## 6. like.js
 
 ```js
 const mongoose = require("mongoose");
@@ -344,12 +378,15 @@ const likeSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Unique compound index to prevent duplicate likes
+likeSchema.index({ user: 1, post: 1 }, { unique: true });
+
 module.exports = mongoose.model("like", likeSchema);
 ```
 
 ---
 
-## 7. follow.model.js
+## 7. follow.js
 
 ```js
 const mongoose = require("mongoose");
@@ -387,7 +424,7 @@ const notificationSchema = new mongoose.Schema(
 
     type: {
       type: String,
-      enum: ["like", "comment", "follow"]
+      enum: ["like", "comment", "follow", "chat_message"]
     },
 
     post: { type: mongoose.Schema.Types.ObjectId, ref: "post" },
@@ -402,23 +439,53 @@ module.exports = mongoose.model("notification", notificationSchema);
 
 ---
 
-## 9. report.model.js
+## 9. report.js
 
 ```js
 const mongoose = require("mongoose");
 
 const reportSchema = new mongoose.Schema(
   {
-    reporter: { type: mongoose.Schema.Types.ObjectId, ref: "user" },
-    post: { type: mongoose.Schema.Types.ObjectId, ref: "post" },
+    reporter: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user",
+      required: true
+    },
+    post: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "post",
+      required: true
+    },
+    reportedUser: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user"
+    },
 
-    reason: String,
+    reason: {
+      type: String,
+      enum: [
+        "spam",
+        "inappropriate_content",
+        "harassment",
+        "misinformation",
+        "copyright_violation",
+        "hate_speech",
+        "violence",
+        "self_harm",
+        "other"
+      ],
+      required: true
+    },
+
+    description: String,
 
     status: {
       type: String,
-      enum: ["pending", "resolved"],
+      enum: ["pending", "resolved", "rejected"],
       default: "pending"
-    }
+    },
+
+    adminNote: String
   },
   { timestamps: true }
 );
@@ -428,7 +495,104 @@ module.exports = mongoose.model("report", reportSchema);
 
 ---
 
-## 10. chat_message.model.js
+## 10. forum.js
+
+```js
+const mongoose = require("mongoose");
+
+const forumSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: [true, "Forum name is required"],
+      trim: true
+    },
+    description: {
+      type: String,
+      default: "",
+      maxlength: 1000
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user",
+      required: true
+    },
+    isDeleted: { type: Boolean, default: false }
+  },
+  { timestamps: true }
+);
+
+module.exports = mongoose.model("forum", forumSchema);
+```
+
+---
+
+## 11. forum_member.js
+
+```js
+const mongoose = require("mongoose");
+
+const forumMemberSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user",
+      required: true
+    },
+    forum: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "forum",
+      required: true
+    },
+    status: {
+      type: String,
+      enum: ["active", "banned", "pending"],
+      default: "active"
+    },
+    joinedAt: { type: Date, default: Date.now() }
+  },
+  { timestamps: true }
+);
+
+// Unique compound index to prevent duplicate memberships
+forumMemberSchema.index({ user: 1, forum: 1 }, { unique: true });
+
+module.exports = mongoose.model("forum_member", forumMemberSchema);
+```
+
+---
+
+## 12. forum_post.js
+
+```js
+const mongoose = require("mongoose");
+
+const forumPostSchema = new mongoose.Schema(
+  {
+    forum: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "forum",
+      required: true
+    },
+    author: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user",
+      required: true
+    },
+    content: { type: String, default: "" },
+    images: [{ type: String }],
+    videos: [{ type: String }],
+    isDeleted: { type: Boolean, default: false }
+  },
+  { timestamps: true }
+);
+
+module.exports = mongoose.model("forum_post", forumPostSchema);
+```
+
+---
+
+## 13. chatmessage.js
 
 ```js
 const mongoose = require("mongoose");
@@ -470,7 +634,7 @@ module.exports = mongoose.model("chat_message", chatMessageSchema);
 
 ---
 
-## 11. message_file.model.js
+## 14. message_file.js
 
 ```js
 const mongoose = require("mongoose");
